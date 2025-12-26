@@ -657,7 +657,7 @@ const RentalForm: React.FC<RentalFormProps> = ({ initialData, onSave, onCancel, 
     e.preventDefault();
     const finalData = {
       ...formData,
-      id: formData.id || Math.floor(Math.random() * 10000).toString(),
+      id: formData.id || '',
       vehicle: {
         name: formData.vehicle?.name || 'Unknown',
         plate: formData.vehicle?.plate || '---',
