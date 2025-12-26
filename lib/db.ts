@@ -184,11 +184,6 @@ export const db = {
                 channel: client.channel,
                 emergency_contacts: client.emergencyContacts,
                 documents: client.documents,
-                rental_count: client.rentalCount,
-                total_amount: parseCurrency(client.totalAmount),
-                paid_amount: parseCurrency(client.paidAmount),
-                debt_amount: parseCurrency(client.debtAmount),
-                overdue_count: client.overdueCount,
                 updated_at: new Date().toISOString()
             };
 
