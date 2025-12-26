@@ -24,7 +24,7 @@ create table companies (
 
 -- Clients
 create table clients (
-    id uuid primary key default uuid_generate_v4(),
+    id text primary key, -- Slugs like 'c1', 's1'
     company_id text references companies(id) on delete cascade,
     name text not null,
     phone text,
@@ -44,7 +44,7 @@ create table clients (
 
 -- Vehicles
 create table vehicles (
-    id uuid primary key default uuid_generate_v4(),
+    id text primary key, -- Slugs like 'v1', 's1'
     company_id text references companies(id) on delete cascade,
     name text not null,
     plate text not null,
@@ -64,10 +64,10 @@ create table vehicles (
 
 -- Rentals
 create table rentals (
-    id uuid primary key default uuid_generate_v4(),
+    id text primary key, -- Slugs like '1024', '5501'
     company_id text references companies(id) on delete cascade,
-    client_id uuid references clients(id) on delete set null,
-    vehicle_id uuid references vehicles(id) on delete set null,
+    client_id text references clients(id) on delete set null,
+    vehicle_id text references vehicles(id) on delete set null,
     status rental_status default 'incoming',
     start_date timestamptz,
     end_date timestamptz,
@@ -87,15 +87,15 @@ create type transaction_type as enum ('income', 'expense');
 create type payment_method as enum ('cash', 'bank');
 
 create table payments (
-    id uuid primary key default uuid_generate_v4(),
+    id text primary key, -- Slugs like 'pay-001'
     company_id text references companies(id) on delete cascade,
-    rental_id uuid references rentals(id) on delete set null,
-    client_id uuid references clients(id) on delete set null,
+    rental_id text references rentals(id) on delete set null,
+    client_id text references clients(id) on delete set null,
     amount numeric(15, 2) not null,
     type transaction_type default 'income',
     method payment_method default 'cash',
     comment text,
-    responsible_user_id uuid, -- Link to auth.users if needed
+    responsible_user_id uuid, -- Keeping this as uuid because it refers to Supabase Auth users
     created_at timestamptz default now()
 );
 
