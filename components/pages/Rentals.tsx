@@ -772,7 +772,20 @@ const RentalForm: React.FC<RentalFormProps> = ({ initialData, onSave, onCancel, 
                                   onMouseDown={() => handleSelectClient(client)}
                                   className="w-full flex items-center gap-3 p-3 hover:bg-slate-50 transition-colors text-left border-b border-slate-50 last:border-0"
                                 >
-                                  <img src={client.avatar} alt={client.name} className="w-8 h-8 rounded-full object-cover bg-slate-100 border border-slate-200" />
+                                  {client.avatar ? (
+                                    <img
+                                      src={client.avatar}
+                                      alt={client.name}
+                                      className="w-8 h-8 rounded-full object-cover bg-slate-100 border border-slate-200"
+                                      onError={(e) => {
+                                        e.currentTarget.style.display = 'none';
+                                        e.currentTarget.nextElementSibling?.classList.remove('hidden');
+                                      }}
+                                    />
+                                  ) : null}
+                                  <div className={`w-8 h-8 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center ${client.avatar ? 'hidden' : ''}`}>
+                                    <User className="w-4 h-4 text-slate-400" />
+                                  </div>
                                   <div className="flex flex-col min-w-0">
                                     <span className="text-sm font-semibold text-slate-900 truncate">{client.name}</span>
                                     <span className="text-xs text-slate-500 font-mono">{client.phone}</span>
@@ -895,7 +908,20 @@ const RentalForm: React.FC<RentalFormProps> = ({ initialData, onSave, onCancel, 
                                   onMouseDown={() => handleSelectVehicle(vehicle)}
                                   className="w-full flex items-center gap-3 p-3 hover:bg-slate-50 transition-colors text-left border-b border-slate-50 last:border-0"
                                 >
-                                  <img src={vehicle.image} alt={vehicle.name} className="w-10 h-10 rounded-lg object-cover bg-slate-100 border border-slate-200" />
+                                  {vehicle.image ? (
+                                    <img
+                                      src={vehicle.image}
+                                      alt={vehicle.name}
+                                      className="w-10 h-10 rounded-lg object-cover bg-slate-100 border border-slate-200"
+                                      onError={(e) => {
+                                        e.currentTarget.style.display = 'none';
+                                        e.currentTarget.nextElementSibling?.classList.remove('hidden');
+                                      }}
+                                    />
+                                  ) : null}
+                                  <div className={`w-10 h-10 rounded-lg bg-slate-100 border border-slate-200 flex items-center justify-center ${vehicle.image ? 'hidden' : ''}`}>
+                                    <Camera className="w-4 h-4 text-slate-300" />
+                                  </div>
                                   <div className="flex flex-col min-w-0">
                                     <span className="text-sm font-semibold text-slate-900 truncate">{vehicle.name}</span>
                                     <span className="text-xs text-slate-500 font-mono bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200 inline-block mt-1 w-fit">{vehicle.plate}</span>
