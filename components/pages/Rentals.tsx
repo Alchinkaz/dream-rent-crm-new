@@ -596,7 +596,8 @@ const RentalForm: React.FC<RentalFormProps> = ({ initialData, onSave, onCancel, 
         name: client.name,
         phone: client.phone,
         avatarUrl: client.avatar
-      }
+      },
+      clientId: client.id
     }));
     setClientSearchQuery('');
     setIsClientSearchFocused(false);
@@ -610,6 +611,7 @@ const RentalForm: React.FC<RentalFormProps> = ({ initialData, onSave, onCancel, 
         plate: vehicle.plate,
         image: vehicle.image
       },
+      vehicleId: vehicle.id,
       tariffId: '' // Reset tariff when vehicle changes
     }));
     setVehicleSearchQuery('');
@@ -627,14 +629,28 @@ const RentalForm: React.FC<RentalFormProps> = ({ initialData, onSave, onCancel, 
     }));
   };
 
-  const handleCreateClientSave = (newClient: ClientItem) => {
-    handleSelectClient(newClient);
-    setIsNewClientModalOpen(false);
+  const handleCreateClientSave = async (newClient: ClientItem) => {
+    try {
+      await db.clients.save(newClient, isCars ? 'cars' : 'scoots');
+      setAllClients(prev => [...prev, newClient]);
+      handleSelectClient(newClient);
+      setIsNewClientModalOpen(false);
+    } catch (e) {
+      console.error(e);
+      alert('Ошибка при создании клиента');
+    }
   };
 
-  const handleCreateVehicleSave = (newVehicle: VehicleItem) => {
-    handleSelectVehicle(newVehicle);
-    setIsNewVehicleModalOpen(false);
+  const handleCreateVehicleSave = async (newVehicle: VehicleItem) => {
+    try {
+      await db.vehicles.save(newVehicle, isCars ? 'cars' : 'scoots');
+      setAllVehicles(prev => [...prev, newVehicle]);
+      handleSelectVehicle(newVehicle);
+      setIsNewVehicleModalOpen(false);
+    } catch (e) {
+      console.error(e);
+      alert('Ошибка при создании транспорта');
+    }
   };
 
   const handleSubmit = (e: React.FormEvent) => {
