@@ -544,9 +544,10 @@ interface VehicleDetailsProps {
     onEdit: () => void;
     onDelete: () => void;
     onUpdate: (v: VehicleItem) => void;
+    rentals: RentalItem[];
 }
 
-const VehicleDetails: React.FC<VehicleDetailsProps> = ({ vehicle, isCars, onBack, onEdit, onDelete, onUpdate }) => {
+const VehicleDetails: React.FC<VehicleDetailsProps> = ({ vehicle, isCars, onBack, onEdit, onDelete, onUpdate, rentals }) => {
     // ... same content as before ...
     // State for filtering history
     const [historySearch, setHistorySearch] = useState('');
@@ -1277,7 +1278,24 @@ const WarehouseTable: React.FC<{
                                             </td>
                                         );
 
-                                        if (col.id === 'image') return <td key={`${item.id}-img`} className="px-4 py-3 align-middle"><img src={item.image} alt={item.name} className="w-10 h-10 rounded-lg object-cover border border-slate-200 bg-slate-50" /></td>;
+                                        if (col.id === 'image') return (
+                                            <td key={`${item.id}-img`} className="px-4 py-3 align-middle">
+                                                {item.image ? (
+                                                    <img
+                                                        src={item.image}
+                                                        alt={item.name}
+                                                        className="w-10 h-10 rounded-lg object-cover border border-slate-200 bg-slate-50"
+                                                        onError={(e) => {
+                                                            e.currentTarget.style.display = 'none';
+                                                            e.currentTarget.nextElementSibling?.classList.remove('hidden');
+                                                        }}
+                                                    />
+                                                ) : null}
+                                                <div className={`w-10 h-10 rounded-lg bg-slate-100 border border-slate-200 flex items-center justify-center ${item.image ? 'hidden' : ''}`}>
+                                                    <Camera className="w-4 h-4 text-slate-300" />
+                                                </div>
+                                            </td>
+                                        );
                                         if (col.id === 'name') return <td key={`${item.id}-name`} className="px-4 py-3 align-middle"><span className="text-[13px] font-semibold text-slate-800">{item.name}</span></td>;
                                         if (col.id === 'plate') return <td key={`${item.id}-plate`} className="px-4 py-3 align-middle"><span className={TEXT_BADGE_STYLE}>{item.plate}</span></td>;
                                         if (col.id === 'status') return <td key={`${item.id}-status`} className="px-4 py-3 align-middle">{getStatusBadge(item.status)}</td>;

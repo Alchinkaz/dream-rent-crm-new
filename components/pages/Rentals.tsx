@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { PageProps, ClientItem, VehicleItem, RentalItem } from '../../types';
-import { Settings, Check, Clock, CheckCircle2, GripVertical, Search, Calendar as CalendarIcon, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, AlertCircle, Hourglass, CreditCard, LayoutGrid, LayoutList, Copy, ArrowLeft, Save, User, Car, Bike, Wallet, FileText, Trash2, X, ChevronRight as ChevronRightIcon, ChevronDown, ArrowRight, CalendarCheck, Plus, Tag, Archive, Ban, ShieldAlert, Banknote } from 'lucide-react';
+import { Settings, Check, Clock, CheckCircle2, GripVertical, Search, Calendar as CalendarIcon, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, AlertCircle, Hourglass, CreditCard, LayoutGrid, LayoutList, Copy, ArrowLeft, Save, User, Car, Bike, Wallet, FileText, Trash2, X, ChevronRight as ChevronRightIcon, ChevronDown, ArrowRight, CalendarCheck, Plus, Tag, Archive, Ban, ShieldAlert, Banknote, Camera } from 'lucide-react';
 import { initialCarClients, initialScootClients, initialCarVehicles, initialScootVehicles } from '../../data';
 import { ClientForm } from './Clients';
 import { VehicleForm } from './Warehouse';
@@ -1711,11 +1711,20 @@ export const RentalsGrid: React.FC<{ data: RentalItem[], className?: string, onC
               <div className="flex justify-between items-center gap-3">
                 {/* Left Group: Vehicle Info */}
                 <div className="flex gap-4 overflow-hidden h-14">
-                  <img
-                    src={item.vehicle.image}
-                    alt={item.vehicle.name}
-                    className="w-14 h-14 rounded-xl object-cover flex-shrink-0 border border-slate-200 bg-slate-100"
-                  />
+                  {item.vehicle.image ? (
+                    <img
+                      src={item.vehicle.image}
+                      alt={item.vehicle.name}
+                      className="w-14 h-14 rounded-xl object-cover flex-shrink-0 border border-slate-200 bg-slate-100"
+                      onError={(e) => {
+                        e.currentTarget.style.display = 'none';
+                        e.currentTarget.nextElementSibling?.classList.remove('hidden');
+                      }}
+                    />
+                  ) : null}
+                  <div className={`w-14 h-14 rounded-xl bg-slate-100 border border-slate-200 flex items-center justify-center flex-shrink-0 ${item.vehicle.image ? 'hidden' : ''}`}>
+                    <Camera className="w-6 h-6 text-slate-300" />
+                  </div>
                   <div className="flex flex-col justify-between min-w-0 py-0.5">
                     <h4 className="font-bold text-slate-900 text-[15px] truncate leading-tight">{item.vehicle.name}</h4>
                     <div className="flex">
@@ -1879,7 +1888,7 @@ export const RentalsTable: React.FC<{
                       </td>
                     );
                     if (col.id === 'id') return <td key={`${item.id}-id`} className="px-4 py-3 align-middle"><span className="text-[13px] font-semibold text-slate-700">{item.id}</span></td>;
-                    if (col.id === 'vehicle') return <td key={`${item.id}-vehicle`} className="px-4 py-3 align-middle"><div className="flex items-center gap-3"><img src={item.vehicle.image} alt={item.vehicle.name} className="w-9 h-9 rounded-lg object-cover bg-slate-100 border border-slate-200 flex-shrink-0" /><div className="flex flex-col min-w-0"><span className="font-semibold text-slate-800 text-[13px] leading-tight truncate">{item.vehicle.name}</span><span className="text-[11px] font-medium text-slate-500 font-mono mt-0.5">{item.vehicle.plate}</span></div></div></td>;
+                    if (col.id === 'vehicle') return <td key={`${item.id}-vehicle`} className="px-4 py-3 align-middle"><div className="flex items-center gap-3"><div className="w-9 h-9 flex-shrink-0 relative">{item.vehicle.image ? (<img src={item.vehicle.image} alt={item.vehicle.name} className="w-9 h-9 rounded-lg object-cover bg-slate-100 border border-slate-200 block" onError={(e) => { e.currentTarget.style.display = 'none'; e.currentTarget.parentElement?.querySelector('.placeholder')?.classList.remove('hidden'); }} />) : null}<div className={`placeholder absolute inset-0 w-9 h-9 rounded-lg bg-slate-100 border border-slate-200 flex items-center justify-center ${item.vehicle.image ? 'hidden' : ''}`}><Camera className="w-4 h-4 text-slate-300" /></div></div><div className="flex flex-col min-w-0"><span className="font-semibold text-slate-800 text-[13px] leading-tight truncate">{item.vehicle.name}</span><span className="text-[11px] font-medium text-slate-500 font-mono mt-0.5">{item.vehicle.plate}</span></div></div></td>;
                     if (col.id === 'client') return <td key={`${item.id}-client`} className="px-4 py-3 align-middle"><div className="flex items-center gap-3"><img src={item.client.avatarUrl} alt="avatar" className="w-9 h-9 rounded-full object-cover bg-slate-100 border border-slate-200 flex-shrink-0" /><div className="flex flex-col min-w-0"><span className="font-semibold text-slate-900 text-[13px] leading-tight truncate">{item.client.name}</span><span className="text-[11px] text-slate-500 mt-0.5">{item.client.phone}</span></div></div></td>;
                     if (col.id === 'period') return <td key={`${item.id}-period`} className="px-4 py-3 align-middle"><div className="flex flex-col gap-1.5 font-mono text-[11px]"><span className="font-medium text-slate-700 whitespace-nowrap leading-none flex items-center gap-2"><span className="w-1.5 h-1.5 rounded-full bg-emerald-500 flex-shrink-0"></span>{item.period.start}</span><span className="font-medium text-slate-700 whitespace-nowrap leading-none flex items-center gap-2"><span className="w-1.5 h-1.5 rounded-full bg-red-500 flex-shrink-0"></span>{item.period.end}</span></div></td>;
                     if (col.id === 'status') return <td key={`${item.id}-status`} className="px-4 py-3 align-middle text-left">{getStatusBadge(item.status)}</td>;
