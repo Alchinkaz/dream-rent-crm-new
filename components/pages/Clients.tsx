@@ -200,10 +200,16 @@ export const Clients: React.FC<PageProps> = ({ currentCompany, initialSelectedCl
         }
     };
 
-    const handleBulkDelete = () => {
+    const handleBulkDelete = async () => {
+        if (selectedIds.size === 0) return;
         if (window.confirm(`Вы уверены, что хотите удалить выбранных клиентов (${selectedIds.size})?`)) {
-            setClients(prev => prev.filter(c => !selectedIds.has(c.id)));
-            setSelectedIds(new Set());
+            try {
+                await db.clients.deleteBulk(Array.from(selectedIds));
+                await fetchData();
+                setSelectedIds(new Set());
+            } catch (err) {
+                alert('Ошибка при массовом удалении: ' + (err as any).message);
+            }
         }
     };
 
@@ -1249,11 +1255,11 @@ interface ClientsTableProps {
     data: ClientItem[];
     isCars: boolean;
     onRowClick: (client: ClientItem) => void;
-    selectedIds: Set<string>;
-    onSelectAll: (checked: boolean) => void;
-    onSelectOne: (id: string) => void;
-    onEdit: (client: ClientItem) => void;
-    onDelete: (id: string) => void;
+    selectedIds?: Set<string>;
+    onSelectAll?: (checked: boolean) => void;
+    onSelectOne?: (id: string) => void;
+    onEdit?: (client: ClientItem) => void;
+    onDelete?: (id: string) => void;
 }
 
 const ClientsTable: React.FC<ClientsTableProps> = ({ data, isCars, onRowClick, selectedIds, onSelectAll, onSelectOne, onEdit, onDelete }) => {
@@ -1332,8 +1338,9 @@ const ClientsTable: React.FC<ClientsTableProps> = ({ data, isCars, onRowClick, s
                                                 <input
                                                     type="checkbox"
                                                     className="rounded border-slate-300 text-neutral-600 focus:ring-neutral-500 cursor-pointer w-4 h-4"
-                                                    checked={data.length > 0 && selectedIds.size === data.length}
-                                                    onChange={(e) => onSelectAll(e.target.checked)}
+                                                    checked={!!selectedIds && data.length > 0 && selectedIds.size === data.length}
+                                                    onChange={(e) => onSelectAll?.(e.target.checked)}
+                                                    disabled={!onSelectAll}
                                                 />
                                             </th>
                                         );
@@ -1356,7 +1363,14 @@ const ClientsTable: React.FC<ClientsTableProps> = ({ data, isCars, onRowClick, s
                                     <tr key={item.id} onClick={() => onRowClick(item)} className={`hover:bg-slate-50/80 transition-colors group cursor-pointer ${selectedIds.has(item.id) ? 'bg-slate-50' : ''}`}>
                                         {columns.map((col) => {
                                             if (!col.visible) return null;
-                                            if (col.id === 'actions') return <td key={`${item.id}-actions`} className="px-4 py-3 align-middle text-center"></td>;
+                                            if (col.id === 'actions') return (
+                                                <td key={`${item.id}-actions`} className="px-4 py-3 align-middle text-center" onClick={(e) => e.stopPropagation()}>
+                                                    <div className="flex items-center justify-center gap-2">
+                                                        {onEdit && <button onClick={() => onEdit(item)} className="p-1.5 text-slate-400 hover:text-neutral-900 hover:bg-slate-100 rounded-md transition-all"><Pencil className="w-4 h-4" /></button>}
+                                                        {onDelete && <button onClick={() => onDelete(item.id)} className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-md transition-all"><Trash2 className="w-4 h-4" /></button>}
+                                                    </div>
+                                                </td>
+                                            );
 
                                             if (col.id === 'checkbox') {
                                                 return (
@@ -1364,9 +1378,10 @@ const ClientsTable: React.FC<ClientsTableProps> = ({ data, isCars, onRowClick, s
                                                         <input
                                                             type="checkbox"
                                                             className="rounded border-slate-300 text-neutral-600 focus:ring-neutral-500 cursor-pointer w-4 h-4"
-                                                            checked={selectedIds.has(item.id)}
-                                                            onChange={() => onSelectOne(item.id)}
+                                                            checked={selectedIds?.has(item.id) || false}
+                                                            onChange={() => onSelectOne?.(item.id)}
                                                             onClick={(e) => e.stopPropagation()}
+                                                            disabled={!onSelectOne}
                                                         />
                                                     </td>
                                                 );

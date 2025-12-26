@@ -894,7 +894,6 @@ export const Warehouse: React.FC<PageProps> = ({ currentCompany, initialSelected
             alert('Ошибка при обновлении: ' + (err as any).message);
         }
     };
-
     const handleDelete = async (id: string) => {
         if (!id) return;
         if (window.confirm('Вы уверены, что хотите удалить этот транспорт?')) {
@@ -906,17 +905,44 @@ export const Warehouse: React.FC<PageProps> = ({ currentCompany, initialSelected
                     setPageView('list');
                 }
                 setSelectedIds(prev => {
-                    if (prev.has(id)) {
-                        const newSet = new Set(prev);
-                        newSet.delete(id);
-                        return newSet;
-                    }
-                    return prev;
+                    const newSet = new Set(prev);
+                    newSet.delete(id);
+                    return newSet;
                 });
             } catch (err) {
                 alert('Ошибка при удалении: ' + (err as any).message);
             }
         }
+    };
+
+    const handleBulkDelete = async () => {
+        if (selectedIds.size === 0) return;
+        if (window.confirm(`Вы уверены, что хотите удалить выбранный транспорт (${selectedIds.size})?`)) {
+            try {
+                await db.vehicles.deleteBulk(Array.from(selectedIds));
+                await fetchData();
+                setSelectedIds(new Set());
+            } catch (err) {
+                alert('Ошибка при массовом удалении: ' + (err as any).message);
+            }
+        }
+    };
+
+    const handleSelectAll = (checked: boolean) => {
+        if (checked) {
+            setSelectedIds(new Set(filteredData.map(v => v.id)));
+        } else {
+            setSelectedIds(new Set());
+        }
+    };
+
+    const handleSelectOne = (id: string) => {
+        setSelectedIds(prev => {
+            const newSet = new Set(prev);
+            if (newSet.has(id)) newSet.delete(id);
+            else newSet.add(id);
+            return newSet;
+        });
     };
 
     const handleBackToTable = () => {
@@ -1084,7 +1110,13 @@ export const Warehouse: React.FC<PageProps> = ({ currentCompany, initialSelected
                         </div>
                     </div>
 
-                    <div>
+                    <div className="flex items-center gap-3">
+                        {selectedIds.size > 0 && (
+                            <button onClick={handleBulkDelete} className="flex items-center gap-2 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg text-sm font-medium transition-colors shadow-sm">
+                                <Trash2 className="w-4 h-4" />
+                                <span>Удалить выбранные ({selectedIds.size})</span>
+                            </button>
+                        )}
                         <button onClick={handleCreateNew} className="bg-neutral-900 hover:bg-neutral-800 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors shadow-sm shadow-neutral-200 flex items-center gap-2">
                             <span>{currentCompany.type === 'cars' ? 'Добавить автомобиль' : 'Добавить мопед'}</span>
                         </button>
@@ -1098,7 +1130,12 @@ export const Warehouse: React.FC<PageProps> = ({ currentCompany, initialSelected
                         <WarehouseTable
                             data={filteredData}
                             isCars={currentCompany.type === 'cars'}
-                            onRowClick={(vehicle) => { setSelectedVehicle(vehicle); setActiveView('details'); }}
+                            onRowClick={(vehicle) => { setSelectedVehicle(vehicle); setPageView('details'); }}
+                            selectedIds={selectedIds}
+                            onSelectAll={handleSelectAll}
+                            onSelectOne={handleSelectOne}
+                            onEdit={handleEdit}
+                            onDelete={handleDelete}
                         />
                     )}
 
@@ -1113,7 +1150,16 @@ export const Warehouse: React.FC<PageProps> = ({ currentCompany, initialSelected
 
 // --- Table Component ---
 
-const WarehouseTable: React.FC<{ data: VehicleItem[], isCars: boolean, onRowClick: (item: VehicleItem) => void }> = ({ data, isCars, onRowClick }) => {
+const WarehouseTable: React.FC<{
+    data: VehicleItem[],
+    isCars: boolean,
+    onRowClick: (item: VehicleItem) => void,
+    selectedIds?: Set<string>,
+    onSelectAll?: (checked: boolean) => void,
+    onSelectOne?: (id: string) => void,
+    onEdit?: (item: VehicleItem) => void,
+    onDelete?: (id: string) => void
+}> = ({ data, isCars, onRowClick, selectedIds, onSelectAll, onSelectOne, onEdit, onDelete }) => {
     const [columns, setColumns] = useState<ColumnConfig[]>([
         { id: 'checkbox', label: '', visible: true, width: 'w-12' },
         { id: 'image', label: 'Фото', visible: true, width: 'w-16' },
@@ -1192,7 +1238,13 @@ const WarehouseTable: React.FC<{ data: VehicleItem[], isCars: boolean, onRowClic
                                     if (col.id === 'checkbox') {
                                         return (
                                             <th key={col.id} className={`px-4 py-3 w-12 align-middle ${stickyClass}`}>
-                                                <input type="checkbox" className="rounded border-slate-300 text-neutral-600 focus:ring-neutral-500 cursor-pointer w-4 h-4" />
+                                                <input
+                                                    type="checkbox"
+                                                    className="rounded border-slate-300 text-neutral-600 focus:ring-neutral-500 cursor-pointer w-4 h-4"
+                                                    checked={!!selectedIds && data.length > 0 && selectedIds.size === data.length}
+                                                    onChange={(e) => onSelectAll?.(e.target.checked)}
+                                                    disabled={!onSelectAll}
+                                                />
                                             </th>
                                         );
                                     }
@@ -1205,8 +1257,25 @@ const WarehouseTable: React.FC<{ data: VehicleItem[], isCars: boolean, onRowClic
                                 <tr key={item.id} onClick={() => onRowClick(item)} className="hover:bg-slate-50/80 transition-colors group cursor-pointer">
                                     {columns.map((col) => {
                                         if (!col.visible) return null;
-                                        if (col.id === 'checkbox') return <td key={`${item.id}-checkbox`} className="px-4 py-3 align-middle" onClick={(e) => e.stopPropagation()}><input type="checkbox" className="rounded border-slate-300 text-neutral-600 focus:ring-neutral-500 cursor-pointer w-4 h-4" /></td>;
-                                        if (col.id === 'actions') return <td key={`${item.id}-actions`} className="px-4 py-3 text-center align-middle"></td>;
+                                        if (col.id === 'checkbox') return (
+                                            <td key={`${item.id}-checkbox`} className="px-4 py-3 align-middle" onClick={(e) => e.stopPropagation()}>
+                                                <input
+                                                    type="checkbox"
+                                                    className="rounded border-slate-300 text-neutral-600 focus:ring-neutral-500 cursor-pointer w-4 h-4"
+                                                    checked={selectedIds?.has(item.id) || false}
+                                                    onChange={() => onSelectOne?.(item.id)}
+                                                    disabled={!onSelectOne}
+                                                />
+                                            </td>
+                                        );
+                                        if (col.id === 'actions') return (
+                                            <td key={`${item.id}-actions`} className="px-4 py-3 align-middle text-center" onClick={(e) => e.stopPropagation()}>
+                                                <div className="flex items-center justify-center gap-2">
+                                                    {onEdit && <button onClick={() => onEdit(item)} className="p-1.5 text-slate-400 hover:text-neutral-900 hover:bg-slate-100 rounded-md transition-all"><Pencil className="w-4 h-4" /></button>}
+                                                    {onDelete && <button onClick={() => onDelete(item.id)} className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-md transition-all"><Trash2 className="w-4 h-4" /></button>}
+                                                </div>
+                                            </td>
+                                        );
 
                                         if (col.id === 'image') return <td key={`${item.id}-img`} className="px-4 py-3 align-middle"><img src={item.image} alt={item.name} className="w-10 h-10 rounded-lg object-cover border border-slate-200 bg-slate-50" /></td>;
                                         if (col.id === 'name') return <td key={`${item.id}-name`} className="px-4 py-3 align-middle"><span className="text-[13px] font-semibold text-slate-800">{item.name}</span></td>;

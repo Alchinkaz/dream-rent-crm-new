@@ -111,6 +111,13 @@ export const db = {
                 .delete()
                 .eq('id', id);
             if (error) throw error;
+        },
+        async deleteBulk(ids: string[]) {
+            const { error } = await supabase
+                .from('rentals')
+                .delete()
+                .in('id', ids);
+            if (error) throw error;
         }
     },
 
@@ -165,6 +172,10 @@ export const db = {
         async delete(id: string) {
             const { error } = await supabase.from('clients').delete().eq('id', id);
             if (error) throw error;
+        },
+        async deleteBulk(ids: string[]) {
+            const { error } = await supabase.from('clients').delete().in('id', ids);
+            if (error) throw error;
         }
     },
 
@@ -214,6 +225,10 @@ export const db = {
         },
         async delete(id: string) {
             const { error } = await supabase.from('vehicles').delete().eq('id', id);
+            if (error) throw error;
+        },
+        async deleteBulk(ids: string[]) {
+            const { error } = await supabase.from('vehicles').delete().in('id', ids);
             if (error) throw error;
         }
     }

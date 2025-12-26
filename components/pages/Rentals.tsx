@@ -1338,6 +1338,7 @@ export const Rentals: React.FC<PageProps> = ({ currentCompany, onNavigateToClien
   // New States for Navigation
   const [pageView, setPageView] = useState<'list' | 'form'>('list');
   const [selectedRental, setSelectedRental] = useState<RentalItem | null>(null);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [rentalsData, setRentalsData] = useState<RentalItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -1436,10 +1437,45 @@ export const Rentals: React.FC<PageProps> = ({ currentCompany, onNavigateToClien
       await fetchRentals();
       setPageView('list');
       setSelectedRental(null);
+      setSelectedIds(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(id);
+        return newSet;
+      });
     } catch (err) {
       console.error('Delete error:', err);
       alert('Ошибка при удалении: ' + (err as any).message);
     }
+  };
+
+  const handleBulkDelete = async () => {
+    if (selectedIds.size === 0) return;
+    if (window.confirm(`Вы уверены, что хотите удалить выбранные аренды (${selectedIds.size})?`)) {
+      try {
+        await db.rentals.deleteBulk(Array.from(selectedIds));
+        await fetchRentals();
+        setSelectedIds(new Set());
+      } catch (err) {
+        alert('Ошибка при массовом удалении: ' + (err as any).message);
+      }
+    }
+  };
+
+  const handleSelectAll = (checked: boolean) => {
+    if (checked) {
+      setSelectedIds(new Set(filteredData.map(r => r.id)));
+    } else {
+      setSelectedIds(new Set());
+    }
+  };
+
+  const handleSelectOne = (id: string) => {
+    setSelectedIds(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(id)) newSet.delete(id);
+      else newSet.add(id);
+      return newSet;
+    });
   };
 
   if (pageView === 'form') {
@@ -1511,6 +1547,12 @@ export const Rentals: React.FC<PageProps> = ({ currentCompany, onNavigateToClien
             </div>
           </div>
           <div className="flex items-center gap-4">
+            {selectedIds.size > 0 && (
+              <button onClick={handleBulkDelete} className="flex items-center gap-2 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg text-sm font-medium transition-colors shadow-sm">
+                <Trash2 className="w-4 h-4" />
+                <span>Удалить ({selectedIds.size})</span>
+              </button>
+            )}
             <div className="flex items-center bg-slate-100 p-1 rounded-lg border border-slate-200">
               <button onClick={() => setViewMode('table')} className={`p-1.5 rounded-md transition-all ${viewMode === 'table' ? 'bg-white shadow-sm text-neutral-900' : 'text-slate-500 hover:text-slate-700'}`}><LayoutList className="w-4 h-4" /></button>
               <button onClick={() => setViewMode('grid')} className={`p-1.5 rounded-md transition-all ${viewMode === 'grid' ? 'bg-white shadow-sm text-neutral-900' : 'text-slate-500 hover:text-slate-700'}`}><LayoutGrid className="w-4 h-4" /></button>
@@ -1524,7 +1566,15 @@ export const Rentals: React.FC<PageProps> = ({ currentCompany, onNavigateToClien
       <div className="flex-1 overflow-auto px-8 pb-4 w-full animate-in fade-in slide-in-from-bottom-2 duration-300">
         {hasData ? (
           viewMode === 'table' ? (
-            <RentalsTable data={filteredData} isCars={currentCompany.type === 'cars'} onRowClick={handleRowClick} />
+            <RentalsTable
+              data={filteredData}
+              isCars={currentCompany.type === 'cars'}
+              onRowClick={handleRowClick}
+              selectedIds={selectedIds}
+              onSelectAll={handleSelectAll}
+              onSelectOne={handleSelectOne}
+              onDelete={handleDeleteRental}
+            />
           ) : (
             <RentalsGrid data={filteredData} onCardClick={handleRowClick} />
           )
@@ -1693,7 +1743,16 @@ export const RentalsGrid: React.FC<{ data: RentalItem[], className?: string, onC
 }
 
 // --- Table Component ---
-export const RentalsTable: React.FC<{ data: RentalItem[], isCars: boolean, className?: string, onRowClick?: (item: RentalItem) => void }> = ({ data, isCars, className, onRowClick }) => {
+export const RentalsTable: React.FC<{
+  data: RentalItem[],
+  isCars: boolean,
+  className?: string,
+  onRowClick?: (item: RentalItem) => void,
+  selectedIds?: Set<string>,
+  onSelectAll?: (checked: boolean) => void,
+  onSelectOne?: (id: string) => void,
+  onDelete?: (id: string) => void
+}> = ({ data, isCars, className, onRowClick, selectedIds, onSelectAll, onSelectOne, onDelete }) => {
   const [columns, setColumns] = useState<ColumnConfig[]>([
     { id: 'checkbox', label: '', visible: true, width: 'w-12' },
     { id: 'id', label: 'Номер', visible: true, width: 'w-16' },
@@ -1774,7 +1833,13 @@ export const RentalsTable: React.FC<{ data: RentalItem[], isCars: boolean, class
                   if (col.id === 'checkbox') {
                     return (
                       <th key={col.id} className={`px-4 py-3 w-12 align-middle ${stickyClass}`}>
-                        <input type="checkbox" className="rounded border-slate-300 text-neutral-600 focus:ring-neutral-500 cursor-pointer w-4 h-4" />
+                        <input
+                          type="checkbox"
+                          className="rounded border-slate-300 text-neutral-600 focus:ring-neutral-500 cursor-pointer w-4 h-4"
+                          checked={!!selectedIds && data.length > 0 && selectedIds.size === data.length}
+                          onChange={(e) => onSelectAll?.(e.target.checked)}
+                          disabled={!onSelectAll}
+                        />
                       </th>
                     );
                   }
@@ -1793,8 +1858,26 @@ export const RentalsTable: React.FC<{ data: RentalItem[], isCars: boolean, class
                 >
                   {columns.map((col) => {
                     if (!col.visible) return null;
-                    if (col.id === 'checkbox') return <td key={`${item.id}-checkbox`} className="px-4 py-3 align-middle" onClick={(e) => e.stopPropagation()}><input type="checkbox" className="rounded border-slate-300 text-neutral-600 focus:ring-neutral-500 cursor-pointer w-4 h-4" /></td>;
-                    if (col.id === 'actions') return <td key={`${item.id}-actions`} className="px-4 py-3 text-center align-middle"></td>;
+                    if (col.id === 'checkbox') return (
+                      <td key={`${item.id}-checkbox`} className="px-4 py-3 align-middle" onClick={(e) => e.stopPropagation()}>
+                        <input
+                          type="checkbox"
+                          className="rounded border-slate-300 text-neutral-600 focus:ring-neutral-500 cursor-pointer w-4 h-4"
+                          checked={selectedIds?.has(item.id) || false}
+                          onChange={() => onSelectOne?.(item.id)}
+                          disabled={!onSelectOne}
+                        />
+                      </td>
+                    );
+                    if (col.id === 'actions') return (
+                      <td key={`${item.id}-actions`} className="px-4 py-3 align-middle text-center" onClick={(e) => e.stopPropagation()}>
+                        {onDelete && (
+                          <div className="flex items-center justify-center gap-2">
+                            <button onClick={() => onDelete(item.id)} className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-md transition-all"><Trash2 className="w-4 h-4" /></button>
+                          </div>
+                        )}
+                      </td>
+                    );
                     if (col.id === 'id') return <td key={`${item.id}-id`} className="px-4 py-3 align-middle"><span className="text-[13px] font-semibold text-slate-700">{item.id}</span></td>;
                     if (col.id === 'vehicle') return <td key={`${item.id}-vehicle`} className="px-4 py-3 align-middle"><div className="flex items-center gap-3"><img src={item.vehicle.image} alt={item.vehicle.name} className="w-9 h-9 rounded-lg object-cover bg-slate-100 border border-slate-200 flex-shrink-0" /><div className="flex flex-col min-w-0"><span className="font-semibold text-slate-800 text-[13px] leading-tight truncate">{item.vehicle.name}</span><span className="text-[11px] font-medium text-slate-500 font-mono mt-0.5">{item.vehicle.plate}</span></div></div></td>;
                     if (col.id === 'client') return <td key={`${item.id}-client`} className="px-4 py-3 align-middle"><div className="flex items-center gap-3"><img src={item.client.avatarUrl} alt="avatar" className="w-9 h-9 rounded-full object-cover bg-slate-100 border border-slate-200 flex-shrink-0" /><div className="flex flex-col min-w-0"><span className="font-semibold text-slate-900 text-[13px] leading-tight truncate">{item.client.name}</span><span className="text-[11px] text-slate-500 mt-0.5">{item.client.phone}</span></div></div></td>;
