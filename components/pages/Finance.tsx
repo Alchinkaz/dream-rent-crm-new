@@ -234,7 +234,7 @@ export const Finance: React.FC<PageProps> = ({ currentCompany }) => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {filteredData.length > 0 ? filteredData.map((item) => (
+                {filteredData.map((item) => (
                   <tr key={item.id} className="hover:bg-slate-50/80 transition-colors group">
                     {/* Checkbox */}
                     <td className="px-6 py-4 align-middle">
@@ -313,7 +313,7 @@ export const Finance: React.FC<PageProps> = ({ currentCompany }) => {
                       </div>
                     </td>
                   </tr>
-                )}
+                ))}
                 {isLoading && (
                   <tr>
                     <td colSpan={8} className="px-6 py-12 text-center text-slate-500">
