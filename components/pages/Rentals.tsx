@@ -441,8 +441,21 @@ const RentalForm: React.FC<RentalFormProps> = ({ initialData, onSave, onCancel, 
   // Payment Modal State
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
 
-  const allClients = isCars ? initialCarClients : initialScootClients;
-  const allVehicles = isCars ? initialCarVehicles : initialScootVehicles;
+  const [allClients, setAllClients] = useState<ClientItem[]>([]);
+  const [allVehicles, setAllVehicles] = useState<VehicleItem[]>([]);
+
+  useEffect(() => {
+    const fetchData = async () => {
+      const companyId = isCars ? 'cars' : 'scoots';
+      const [clients, vehicles] = await Promise.all([
+        db.clients.list(companyId),
+        db.vehicles.list(companyId)
+      ]);
+      setAllClients(clients);
+      setAllVehicles(vehicles);
+    };
+    fetchData();
+  }, [isCars]);
 
   const dbClient = formData.client?.name ? allClients.find(c => c.name === formData.client?.name || c.phone === formData.client?.phone) : undefined;
   const dbVehicle = formData.vehicle?.name ? allVehicles.find(v => v.name === formData.vehicle?.name || v.plate === formData.vehicle?.plate) : undefined;
