@@ -106,6 +106,9 @@ export const db = {
         },
 
         async delete(id: string) {
+            // Manual cascade delete for payments if not handled by DB
+            await supabase.from('payments').delete().eq('rental_id', id);
+
             const { error } = await supabase
                 .from('rentals')
                 .delete()
@@ -113,6 +116,9 @@ export const db = {
             if (error) throw error;
         },
         async deleteBulk(ids: string[]) {
+            // Manual cascade delete for payments
+            await supabase.from('payments').delete().in('rental_id', ids);
+
             const { error } = await supabase
                 .from('rentals')
                 .delete()
@@ -170,10 +176,15 @@ export const db = {
             if (error) throw error;
         },
         async delete(id: string) {
+            // Note: payments often depend on rentals, but some might be linked only to client
+            await supabase.from('payments').delete().eq('client_id', id);
+
             const { error } = await supabase.from('clients').delete().eq('id', id);
             if (error) throw error;
         },
         async deleteBulk(ids: string[]) {
+            await supabase.from('payments').delete().in('client_id', ids);
+
             const { error } = await supabase.from('clients').delete().in('id', ids);
             if (error) throw error;
         }
@@ -229,6 +240,52 @@ export const db = {
         },
         async deleteBulk(ids: string[]) {
             const { error } = await supabase.from('vehicles').delete().in('id', ids);
+            if (error) throw error;
+        }
+    },
+
+    payments: {
+        async list(companyId: string): Promise<any[]> {
+            const { data, error } = await supabase
+                .from('payments')
+                .select(`
+                    *,
+                    client:clients(name, phone, avatar),
+                    rental:rentals(id)
+                `)
+                .eq('company_id', companyId)
+                .order('created_at', { ascending: false });
+
+            if (error) {
+                console.error('Error fetching payments:', error);
+                return [];
+            }
+
+            return (data || []).map(p => ({
+                id: p.id,
+                date: formatDateTime(new Date(p.created_at)),
+                rentalId: p.rental?.id || '—',
+                client: {
+                    name: p.client?.name || 'Удаленный клиент',
+                    phone: p.client?.phone || '',
+                    avatarUrl: p.client?.avatar || ''
+                },
+                paymentType: p.method,
+                amount: (p.type === 'income' ? '+ ' : '- ') + formatCurrency(p.amount),
+                type: p.type,
+                responsible: {
+                    name: 'Admin', // In real app, join with users table
+                    email: 'info@dreamrent.kz',
+                    avatarUrl: 'https://ui-avatars.com/api/?name=Admin&background=0a0a0a&color=fff&bold=true'
+                }
+            }));
+        },
+        async delete(id: string) {
+            const { error } = await supabase.from('payments').delete().eq('id', id);
+            if (error) throw error;
+        },
+        async deleteBulk(ids: string[]) {
+            const { error } = await supabase.from('payments').delete().in('id', ids);
             if (error) throw error;
         }
     }

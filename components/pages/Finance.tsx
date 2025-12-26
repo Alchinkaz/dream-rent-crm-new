@@ -1,11 +1,10 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 import { PageProps } from '../../types';
-import { Search, Filter, Download, CreditCard, Banknote, Calendar, Hash, ArrowUpRight, ArrowDownLeft, Wallet, Check, ChevronDown, X, Calendar as CalendarIcon } from 'lucide-react';
+import { Search, Filter, Download, CreditCard, Banknote, Calendar, Hash, ArrowUpRight, ArrowDownLeft, Wallet, Check, ChevronDown, X, Calendar as CalendarIcon, Trash2, Pencil } from 'lucide-react';
 import { DateRangePicker } from './Rentals';
 import { parseDateTime } from '../../lib/utils';
+import { db } from '../../lib/db';
 
-// Mock Data Types
 interface FinanceItem {
   id: string;
   date: string;
@@ -25,68 +24,6 @@ interface FinanceItem {
   };
 }
 
-// Mock Data for Cars
-const carFinanceData: FinanceItem[] = [
-  {
-    id: 'pay-002',
-    date: '01.06.2024, 10:05',
-    rentalId: '1025',
-    client: {
-      name: 'Мария Смирнова',
-      phone: '+7 (777) 987-65-43',
-      avatarUrl: 'https://ui-avatars.com/api/?name=Maria+Smirnova&background=fce7f3&color=db2777'
-    },
-    paymentType: 'bank',
-    amount: '+ 20 000 ₸',
-    type: 'income',
-    responsible: {
-      name: 'Admin',
-      email: 'info@dreamrent.kz',
-      avatarUrl: 'https://ui-avatars.com/api/?name=Admin&background=0a0a0a&color=fff&bold=true'
-    }
-  },
-  {
-    id: 'pay-001',
-    date: '30.05.2024, 14:35',
-    rentalId: '1026',
-    client: {
-      name: 'Ержан Болатов',
-      phone: '+7 (701) 555-44-33',
-      avatarUrl: 'https://ui-avatars.com/api/?name=Erzhan+Bolatov&background=dbeafe&color=2563eb'
-    },
-    paymentType: 'cash',
-    amount: '+ 45 000 ₸',
-    type: 'income',
-    responsible: {
-      name: 'Admin',
-      email: 'info@dreamrent.kz',
-      avatarUrl: 'https://ui-avatars.com/api/?name=Admin&background=0a0a0a&color=fff&bold=true'
-    }
-  }
-];
-
-// Mock Data for Scoots
-const scootFinanceData: FinanceItem[] = [
-  {
-    id: 'pay-s01',
-    date: '25.10.2024, 16:35',
-    rentalId: '5502',
-    client: {
-      name: 'Иван Сергеев',
-      phone: '+7 (705) 111-22-33',
-      avatarUrl: 'https://ui-avatars.com/api/?name=Ivan+Sergeev&background=f0fdf4&color=16a34a'
-    },
-    paymentType: 'bank',
-    amount: '+ 1 200 ₸',
-    type: 'income',
-    responsible: {
-      name: 'Admin',
-      email: 'info@dreamrent.kz',
-      avatarUrl: 'https://ui-avatars.com/api/?name=Admin&background=0a0a0a&color=fff&bold=true'
-    }
-  }
-];
-
 export const Finance: React.FC<PageProps> = ({ currentCompany }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
@@ -94,8 +31,28 @@ export const Finance: React.FC<PageProps> = ({ currentCompany }) => {
   const [paymentFilter, setPaymentFilter] = useState<'all' | 'cash' | 'bank'>('all');
   const [isPaymentFilterOpen, setIsPaymentFilterOpen] = useState(false);
 
+  const [financeData, setFinanceData] = useState<FinanceItem[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+
   const datePickerRef = useRef<HTMLDivElement>(null);
   const paymentFilterRef = useRef<HTMLDivElement>(null);
+
+  const fetchData = async () => {
+    setIsLoading(true);
+    try {
+      const data = await db.payments.list(currentCompany.id);
+      setFinanceData(data);
+    } catch (err) {
+      console.error('Failed to fetch finance data:', err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchData();
+  }, [currentCompany.id]);
 
   // Close dropdowns on outside click
   useEffect(() => {
@@ -107,8 +64,50 @@ export const Finance: React.FC<PageProps> = ({ currentCompany }) => {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [isDatePickerOpen, isPaymentFilterOpen]);
 
-  // Select data based on company type
-  const financeData = currentCompany.type === 'cars' ? carFinanceData : scootFinanceData;
+  const handleDelete = async (id: string) => {
+    if (!window.confirm('Вы уверены, что хотите удалить эту транзакцию?')) return;
+    try {
+      await db.payments.delete(id);
+      await fetchData();
+      setSelectedIds(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(id);
+        return newSet;
+      });
+    } catch (err) {
+      alert('Ошибка при удалении: ' + (err as any).message);
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    const ids = Array.from(selectedIds);
+    if (ids.length === 0) return;
+    if (!window.confirm(`Вы уверены, что хотите удалить выбранные транзакции (${ids.length})?`)) return;
+    try {
+      await db.payments.deleteBulk(ids);
+      await fetchData();
+      setSelectedIds(new Set());
+    } catch (err) {
+      alert('Ошибка при массовом удалении: ' + (err as any).message);
+    }
+  };
+
+  const toggleSelectAll = (checked: boolean) => {
+    if (checked) {
+      setSelectedIds(new Set(filteredData.map(item => item.id)));
+    } else {
+      setSelectedIds(new Set());
+    }
+  };
+
+  const toggleSelectOne = (id: string) => {
+    setSelectedIds(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(id)) newSet.delete(id);
+      else newSet.add(id);
+      return newSet;
+    });
+  };
 
   // Filter logic
   const filteredData = financeData.filter(item => {
@@ -197,6 +196,12 @@ export const Finance: React.FC<PageProps> = ({ currentCompany }) => {
         </div>
 
         <div className="flex items-center gap-3">
+          {selectedIds.size > 0 && (
+            <button onClick={handleBulkDelete} className="flex items-center gap-2 px-3 py-2 bg-red-600 text-white text-sm font-medium rounded-lg hover:bg-red-700 transition-colors shadow-sm">
+              <Trash2 className="w-4 h-4" />
+              <span>Удалить ({selectedIds.size})</span>
+            </button>
+          )}
           <button className="flex items-center gap-2 px-3 py-2 bg-neutral-900 text-white text-sm font-medium rounded-lg hover:bg-neutral-800 transition-colors shadow-sm">
             <Download className="w-4 h-4" />
             <span>Экспорт</span>
@@ -211,17 +216,36 @@ export const Finance: React.FC<PageProps> = ({ currentCompany }) => {
             <table className="w-full text-left border-collapse">
               <thead>
                 <tr className="bg-slate-50 border-b border-slate-200">
+                  <th className="px-6 py-4 w-12 align-middle">
+                    <input
+                      type="checkbox"
+                      className="rounded border-slate-300 text-neutral-600 focus:ring-neutral-500 cursor-pointer w-4 h-4"
+                      checked={filteredData.length > 0 && selectedIds.size === filteredData.length}
+                      onChange={(e) => toggleSelectAll(e.target.checked)}
+                    />
+                  </th>
                   <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider whitespace-nowrap">Дата</th>
                   <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider whitespace-nowrap">Аренда</th>
                   <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider whitespace-nowrap">Клиент</th>
                   <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider whitespace-nowrap">Тип оплаты</th>
                   <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider whitespace-nowrap text-right">Сумма</th>
                   <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider whitespace-nowrap">Ответственный</th>
+                  <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider whitespace-nowrap text-center">Действия</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {filteredData.length > 0 ? filteredData.map((item) => (
                   <tr key={item.id} className="hover:bg-slate-50/80 transition-colors group">
+                    {/* Checkbox */}
+                    <td className="px-6 py-4 align-middle">
+                      <input
+                        type="checkbox"
+                        className="rounded border-slate-300 text-neutral-600 focus:ring-neutral-500 cursor-pointer w-4 h-4"
+                        checked={selectedIds.has(item.id)}
+                        onChange={() => toggleSelectOne(item.id)}
+                      />
+                    </td>
+
                     {/* Date */}
                     <td className="px-6 py-4 align-middle whitespace-nowrap">
                       <div className="flex items-center gap-2 text-slate-600 font-medium text-sm">
@@ -266,7 +290,7 @@ export const Finance: React.FC<PageProps> = ({ currentCompany }) => {
 
                     {/* Amount */}
                     <td className="px-6 py-4 align-middle whitespace-nowrap text-right">
-                      <span className="text-sm font-bold text-emerald-600">{item.amount}</span>
+                      <span className={`text-sm font-bold ${item.type === 'income' ? 'text-emerald-600' : 'text-red-500'}`}>{item.amount}</span>
                     </td>
 
                     {/* Responsible */}
@@ -279,10 +303,27 @@ export const Finance: React.FC<PageProps> = ({ currentCompany }) => {
                         </div>
                       </div>
                     </td>
+
+                    {/* Actions */}
+                    <td className="px-6 py-4 align-middle text-center">
+                      <div className="flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <button onClick={() => handleDelete(item.id)} className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-md transition-all">
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </td>
                   </tr>
-                )) : (
+                )}
+                {isLoading && (
                   <tr>
-                    <td colSpan={6} className="px-6 py-12 text-center text-slate-500">
+                    <td colSpan={8} className="px-6 py-12 text-center text-slate-500">
+                      Загрузка...
+                    </td>
+                  </tr>
+                )}
+                {!isLoading && filteredData.length === 0 && (
+                  <tr>
+                    <td colSpan={8} className="px-6 py-12 text-center text-slate-500">
                       Записей не найдено
                     </td>
                   </tr>
