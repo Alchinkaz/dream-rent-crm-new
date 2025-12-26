@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { supabase } from '../../lib/supabase';
 import { Lock, User, AlertCircle, ArrowRight } from 'lucide-react';
 
 interface LoginProps {
@@ -9,13 +10,36 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [error, setError] = useState('');
+    const [isLoading, setIsLoading] = useState(false);
 
-    const handleLogin = (e: React.FormEvent) => {
+    const handleLogin = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (email === 'info@dreamrent.kz' && password === 'nE2@0wW1I|N[TK>*9VI') {
-            onLogin();
-        } else {
-            setError('Неверный логин или пароль');
+        setError('');
+        setIsLoading(true);
+
+        try {
+            const { data, error } = await supabase.rpc('login', {
+                email_input: email,
+                password_input: password
+            });
+
+            if (error) {
+                console.error('Login RPC error:', error);
+                setError('Ошибка сервера при входе');
+                return;
+            }
+
+            if (data) {
+                // Success: data contains the user object
+                onLogin();
+            } else {
+                setError('Неверный логин или пароль');
+            }
+        } catch (err) {
+            console.error('Login exception:', err);
+            setError('Произошла непредвиденная ошибка');
+        } finally {
+            setIsLoading(false);
         }
     };
 
@@ -71,10 +95,17 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
 
                         <button
                             type="submit"
-                            className="w-full bg-neutral-900 hover:bg-neutral-800 text-white font-medium py-2.5 rounded-lg transition-all shadow-lg shadow-neutral-900/10 flex items-center justify-center gap-2 group"
+                            disabled={isLoading}
+                            className="w-full bg-neutral-900 hover:bg-neutral-800 disabled:opacity-70 disabled:cursor-not-allowed text-white font-medium py-2.5 rounded-lg transition-all shadow-lg shadow-neutral-900/10 flex items-center justify-center gap-2 group"
                         >
-                            <span>Вход</span>
-                            <ArrowRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
+                            {isLoading ? (
+                                <span className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></span>
+                            ) : (
+                                <>
+                                    <span>Вход</span>
+                                    <ArrowRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
+                                </>
+                            )}
                         </button>
                     </form>
                 </div>
