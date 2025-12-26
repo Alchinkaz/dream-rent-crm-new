@@ -116,9 +116,14 @@ export const db = {
                     .eq('id', rental.id);
                 if (error) throw error;
             } else {
+                const insertPayload = { ...payload };
+                if (rental.id) {
+                    // @ts-ignore
+                    insertPayload.id = rental.id;
+                }
                 const { error } = await supabase
                     .from('rentals')
-                    .insert({ ...payload, id: rental.id || `r-${Date.now()}` });
+                    .insert(insertPayload);
                 if (error) throw error;
             }
         },
