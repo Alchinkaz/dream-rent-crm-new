@@ -140,6 +140,11 @@ const App: React.FC = () => {
     localStorage.setItem('dreamrent_auth', 'true');
   };
 
+  const handleLogout = () => {
+    setIsAuthenticated(false);
+    localStorage.removeItem('dreamrent_auth');
+  };
+
   if (!isAuthenticated) {
     return <Login onLogin={handleLogin} />;
   }
@@ -159,7 +164,7 @@ const App: React.FC = () => {
 
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-        <Navbar title={getPageTitle(activePage)} />
+        <Navbar title={getPageTitle(activePage)} onLogout={handleLogout} />
 
         {/* Changed from overflow-y-auto to overflow-hidden + relative to support internal scrolling pages */}
         <main className="flex-1 flex flex-col bg-slate-50 overflow-hidden relative">

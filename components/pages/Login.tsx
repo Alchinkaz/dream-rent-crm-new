@@ -24,7 +24,6 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
             <div className="w-full max-w-md">
                 <div className="text-center mb-10">
                     <h1 className="text-4xl font-bold text-slate-900 tracking-tight">Dream Rent</h1>
-                    <p className="text-slate-500 mt-2">Автоматизация аренды транспорта</p>
                 </div>
 
                 <div className="bg-white rounded-2xl shadow-xl border border-slate-200 p-8">
@@ -78,10 +77,6 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
                             <ArrowRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
                         </button>
                     </form>
-                </div>
-
-                <div className="text-center mt-8 text-sm text-slate-400">
-                    &copy; {new Date().getFullYear()} Dream Rent CRM. Все права защищены.
                 </div>
             </div>
         </div>
