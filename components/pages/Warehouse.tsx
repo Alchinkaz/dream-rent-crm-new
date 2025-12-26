@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { PageProps, VehicleItem, RentalItem, Tariff } from '../../types';
 import { Settings, Check, Search, Filter, GripVertical, AlertTriangle, Wrench, CheckCircle2, Circle, Plus, Activity, Car, Bike, Cone, ArrowLeft, Calendar, FileText, Hash, Gauge, Palette, History, Shield, AlertCircle, Copy, Pencil, Trash2, Info, Fuel, DollarSign, Save, X, Camera, Upload, Calendar as CalendarIcon, CreditCard, LayoutList, LayoutGrid, Hourglass, ChevronDown } from 'lucide-react';
 import { getStatusBadge as getRentalStatusBadge, RentalsTable, RentalsGrid, DateRangePicker } from './Rentals';
-import { db } from '../../lib/db';
+import { db, uploadImage } from '../../lib/db';
 import { formatDateTime, parseDateTime } from '../../lib/utils';
 
 type TabId = 'vehicles' | 'maintenance';
@@ -303,6 +303,8 @@ export const VehicleForm: React.FC<VehicleFormProps> = ({ initialData, isCars, o
                 : 'https://images.unsplash.com/photo-1558981403-c5f9899a28bc?auto=format&fit=crop&q=80&w=300&h=300'
         };
     });
+    const [imageFile, setImageFile] = useState<File | null>(null);
+    const [isUploading, setIsUploading] = useState(false);
 
     const handleChange = (field: keyof VehicleItem, value: any) => {
         setFormData(prev => ({ ...prev, [field]: value }));
@@ -313,6 +315,7 @@ export const VehicleForm: React.FC<VehicleFormProps> = ({ initialData, isCars, o
         if (file) {
             const fakeUrl = URL.createObjectURL(file);
             setFormData(prev => ({ ...prev, image: fakeUrl }));
+            setImageFile(file);
         }
     };
 
@@ -320,14 +323,25 @@ export const VehicleForm: React.FC<VehicleFormProps> = ({ initialData, isCars, o
         setFormData(prev => ({ ...prev, tariffs: newTariffs }));
     };
 
-    const handleSubmit = (e: React.FormEvent) => {
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!formData.name || !formData.plate) return; // Basic validation
+
+        setIsUploading(true);
+        let finalImage = formData.image;
+
+        if (imageFile) {
+            const url = await uploadImage(imageFile);
+            if (url) finalImage = url;
+        }
 
         const finalData: VehicleItem = {
             ...formData as VehicleItem,
             id: formData.id || `v${Date.now()}`,
+            image: finalImage,
         };
+
+        setIsUploading(false);
         onSave(finalData);
     };
 
@@ -341,7 +355,10 @@ export const VehicleForm: React.FC<VehicleFormProps> = ({ initialData, isCars, o
                     </div>
                     <div className="flex items-center gap-3">
                         <button onClick={onCancel} className="px-4 py-2 text-slate-600 font-medium hover:bg-slate-100 rounded-lg transition-colors">Отмена</button>
-                        <button onClick={handleSubmit} className="flex items-center gap-2 px-5 py-2 bg-neutral-900 text-white font-medium rounded-lg hover:bg-neutral-800 transition-colors shadow-sm"><Save className="w-4 h-4" />Сохранить</button>
+                        <button onClick={handleSubmit} disabled={isUploading} className="flex items-center gap-2 px-5 py-2 bg-neutral-900 text-white font-medium rounded-lg hover:bg-neutral-800 transition-colors shadow-sm disabled:opacity-70 disabled:cursor-not-allowed">
+                            {isUploading ? <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <Save className="w-4 h-4" />}
+                            <span>{isUploading ? 'Загрузка...' : 'Сохранить'}</span>
+                        </button>
                     </div>
                 </div>
             </div>

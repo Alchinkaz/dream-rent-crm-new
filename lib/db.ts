@@ -2,6 +2,24 @@ import { supabase } from './supabase';
 import { RentalItem, ClientItem, VehicleItem } from '../types';
 import { formatCurrency, parseCurrency, formatDateTime, parseDateTime } from './utils';
 
+export const uploadImage = async (file: File, bucket: string = 'vehicles'): Promise<string | null> => {
+    const fileExt = file.name.split('.').pop();
+    const fileName = `${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`;
+    const filePath = `${fileName}`;
+
+    const { error: uploadError } = await supabase.storage
+        .from(bucket)
+        .upload(filePath, file);
+
+    if (uploadError) {
+        console.error('Error uploading image:', uploadError);
+        return null;
+    }
+
+    const { data } = supabase.storage.from(bucket).getPublicUrl(filePath);
+    return data.publicUrl;
+};
+
 export const db = {
     rentals: {
         async list(companyId: string): Promise<RentalItem[]> {
