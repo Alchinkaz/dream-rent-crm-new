@@ -8,6 +8,7 @@ import { Rentals } from './components/pages/Rentals';
 import { Warehouse } from './components/pages/Warehouse';
 import { Clients } from './components/pages/Clients';
 import { Settings } from './components/pages/Settings';
+import { Login } from './components/pages/Login';
 
 const companies: Company[] = [
   { id: 'cars', name: 'KazDream Cars', email: 'info@dreamrent.kz', type: 'cars' },
@@ -30,6 +31,10 @@ const App: React.FC = () => {
   };
 
   const { initialCompany, finalPage } = getInitialState();
+
+  const [isAuthenticated, setIsAuthenticated] = useState(() => {
+    return typeof window !== 'undefined' && localStorage.getItem('dreamrent_auth') === 'true';
+  });
 
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   // Set Dashboard as default (Main Page)
@@ -129,6 +134,15 @@ const App: React.FC = () => {
     setReturnPage(null);
     setReturnRentalId(null);
   };
+
+  const handleLogin = () => {
+    setIsAuthenticated(true);
+    localStorage.setItem('dreamrent_auth', 'true');
+  };
+
+  if (!isAuthenticated) {
+    return <Login onLogin={handleLogin} />;
+  }
 
   return (
     <div className="flex h-screen bg-slate-50 overflow-hidden">
