@@ -3,7 +3,7 @@ import { PageProps, ClientItem, ClientDocument, ClientContact, RentalItem } from
 import { Settings, Check, Search, Filter, GripVertical, GripHorizontal, Hash, ArrowLeft, Pencil, Trash2, Phone, FileText, ShieldAlert, MessageCircle, Copy, Info, LayoutList, LayoutGrid, Calendar as CalendarIcon, CreditCard, Hourglass, AlertCircle, Plus, Save, X, User as UserIcon, Camera, Upload, Eye, ChevronLeft, ChevronRight } from 'lucide-react';
 import { RentalsGrid, RentalsTable, DateRangePicker, getStatusBadge } from './Rentals';
 import { db } from '../../lib/db';
-import { formatDateTime } from '../../lib/utils';
+import { formatDateTime, parseDateTime } from '../../lib/utils';
 
 interface ColumnConfig {
     id: keyof ClientItem | 'checkbox' | 'actions' | 'documents' | 'emergencyContact';
@@ -64,26 +64,7 @@ const getChannelBadge = (channel: ClientItem['channel']) => {
     return <span className={`${BADGE_BASE_CLASS} ${colorClass}`}>{label}</span>;
 };
 
-const parseRentalDate = (dateStr: string) => {
-    if (!dateStr) return 0;
-    const [datePart, timePart] = dateStr.split(', ');
-    const parts = datePart.split('.');
-    if (parts.length !== 3) return 0;
-    const day = parseInt(parts[0], 10);
-    const month = parseInt(parts[1], 10) - 1;
-    const year = parseInt(parts[2], 10);
-
-    let hours = 0;
-    let minutes = 0;
-    if (timePart) {
-        const timeParts = timePart.split(':');
-        if (timeParts.length === 2) {
-            hours = parseInt(timeParts[0], 10);
-            minutes = parseInt(timeParts[1], 10);
-        }
-    }
-    return new Date(year, month, day, hours, minutes).getTime();
-};
+// parseRentalDate logic replaced by shared parseDateTime
 
 const formatDateForInput = (dateStr?: string) => {
     if (!dateStr) return '';
@@ -98,6 +79,10 @@ export const Clients: React.FC<PageProps> = ({ currentCompany, initialSelectedCl
     const [clients, setClients] = useState<ClientItem[]>([]);
     const [rentals, setRentals] = useState<RentalItem[]>([]);
     const [isLoading, setIsLoading] = useState(true);
+
+    const [selectedClient, setSelectedClient] = useState<ClientItem | null>(null);
+    const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+    const [editingClient, setEditingClient] = useState<ClientItem | null>(null);
 
     const fetchData = async () => {
         setIsLoading(true);
@@ -139,7 +124,11 @@ export const Clients: React.FC<PageProps> = ({ currentCompany, initialSelectedCl
 
     const enrichedClients = clients.map(client => {
         const clientRentals = sourceRentals.filter(r => r.client.name === client.name);
-        clientRentals.sort((a, b) => parseRentalDate(b.period.start) - parseRentalDate(a.period.start));
+        clientRentals.sort((a, b) => {
+            const dateA = a.period.start ? parseDateTime(a.period.start).getTime() : 0;
+            const dateB = b.period.start ? parseDateTime(b.period.start).getTime() : 0;
+            return dateB - dateA;
+        });
         const lastRentalItem = clientRentals[0];
 
         return {
@@ -299,6 +288,7 @@ export const Clients: React.FC<PageProps> = ({ currentCompany, initialSelectedCl
             <ClientDetails
                 client={selectedClient}
                 isCars={currentCompany.type === 'cars'}
+                rentals={rentals}
                 onBack={handleBackToTable}
                 onEdit={() => handleEdit(selectedClient)}
                 onDelete={() => handleDelete(selectedClient.id)}
@@ -719,11 +709,12 @@ export const ClientForm: React.FC<ClientFormProps> = ({ initialData, onSave, onC
 const ClientDetails: React.FC<{
     client: ClientItem;
     isCars: boolean;
+    rentals: RentalItem[];
     onBack: () => void;
     onEdit: () => void;
     onDelete: () => void;
     onUpdate: (client: ClientItem) => void;
-}> = ({ client, isCars, onBack, onEdit, onDelete, onUpdate }) => {
+}> = ({ client, isCars, rentals, onBack, onEdit, onDelete, onUpdate }) => {
     // ... rest of existing ClientDetails implementation ...
     const [viewMode, setViewMode] = useState<'table' | 'grid'>('table');
     const [historySearch, setHistorySearch] = useState('');
