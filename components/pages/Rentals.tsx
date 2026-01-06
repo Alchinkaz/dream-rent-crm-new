@@ -407,12 +407,13 @@ const RentalForm: React.FC<PageProps & {
   initialData?: Partial<RentalItem>,
   isCars: boolean,
   onSave: (data: any) => void,
+  onRefresh?: () => Promise<void>,
   onCancel: () => void,
   onDelete?: (id: string) => void
   onNavigateToClient?: (clientId: string, fromRentalId?: string) => void;
   onNavigateToVehicle?: (vehicleId: string, fromRentalId?: string) => void;
   user: UserType | null;
-}> = ({ initialData, isCars, onSave, onCancel, onDelete, onNavigateToClient, onNavigateToVehicle, user, currentCompany }) => {
+}> = ({ initialData, isCars, onSave, onRefresh, onCancel, onDelete, onNavigateToClient, onNavigateToVehicle, user, currentCompany }) => {
   const isEdit = !!initialData?.id;
   const [formData, setFormData] = useState<Partial<RentalItem>>({
     status: 'incoming' as const,
@@ -558,7 +559,6 @@ const RentalForm: React.FC<PageProps & {
   };
 
   const handleDateApply = (date: Date) => {
-    if (!activeDateField) return;
     const formatted = formatDateTime(date);
     handleChange('period', activeDateField, formatted);
     setActiveDateField(null);
@@ -567,7 +567,6 @@ const RentalForm: React.FC<PageProps & {
   const handleTopLevelChange = (field: keyof RentalItem, value: any) => {
     setFormData(prev => ({ ...prev, [field]: value }));
   };
-
   const handleStatusChange = async (newStatus: RentalStatus) => {
     const id = initialData?.id || formData.id;
     if (!id || !user) return;
@@ -589,13 +588,18 @@ const RentalForm: React.FC<PageProps & {
 
       // 3. Update local state
       setFormData(updatedData);
-      setIsActionMenuOpen(false);
+      setIsActionMenuOpen(false); // Keep this to close the action menu
       loadHistory();
+      if (onRefresh) onRefresh();
     } catch (err) {
       console.error('Status change error:', err);
       alert('Ошибка при смене статуса');
     }
   };
+
+
+
+
 
   const getActionConfig = (status: RentalItem['status'] = 'incoming') => {
     switch (status) {
@@ -677,6 +681,7 @@ const RentalForm: React.FC<PageProps & {
     setClientSearchQuery('');
     setIsClientSearchFocused(false);
     autoSave(newData);
+    if (onRefresh) onRefresh();
   };
 
   const handleSelectVehicle = (vehicle: VehicleItem) => {
@@ -694,6 +699,7 @@ const RentalForm: React.FC<PageProps & {
     setVehicleSearchQuery('');
     setIsVehicleSearchFocused(false);
     autoSave(newData);
+    if (onRefresh) onRefresh();
   };
 
   const handleTariffChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
@@ -702,10 +708,11 @@ const RentalForm: React.FC<PageProps & {
     const newData = {
       ...formData,
       tariffId: tId,
-      amount: tariff ? tariff.price : formData.amount
+      amount: tariff ? formatCurrency(tariff.price) : formData.amount
     };
     setFormData(newData);
     autoSave(newData);
+    if (onRefresh) onRefresh();
   };
 
   const handleCreateClientSave = async (newClient: ClientItem) => {
@@ -773,6 +780,7 @@ const RentalForm: React.FC<PageProps & {
       alert('Оплата принята');
       loadHistory();
       setIsPaymentModalOpen(false);
+      if (onRefresh) onRefresh();
     } catch (e) {
       console.error(e);
       alert('Ошибка при сохранении оплаты: ' + (e as any).message);
@@ -797,6 +805,7 @@ const RentalForm: React.FC<PageProps & {
       });
 
       loadHistory();
+      if (onRefresh) onRefresh();
       alert('Комментарий сохранен');
     } catch (e) {
       console.error(e);
@@ -860,10 +869,7 @@ const RentalForm: React.FC<PageProps & {
           </div>
           <div className="flex items-center gap-3">
             {isEdit ? (
-              <div className="flex items-center gap-2 px-3 py-2 text-slate-400 text-sm font-medium animate-pulse">
-                <Check className="w-4 h-4 text-emerald-500" />
-                Сохранено автоматически
-              </div>
+              null
             ) : (
               <>
                 <button type="button" onClick={onCancel} className="px-4 py-2 text-slate-600 font-medium hover:bg-slate-100 rounded-lg transition-colors">Отмена</button>
@@ -1803,6 +1809,7 @@ export const Rentals: React.FC<PageProps> = ({ currentCompany, onNavigateToClien
         onNavigateToVehicle={onNavigateToVehicle}
         user={user}
         currentCompany={currentCompany}
+        onRefresh={fetchRentals}
       />
     );
   }
