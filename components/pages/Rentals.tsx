@@ -432,6 +432,20 @@ const RentalForm: React.FC<PageProps & {
   const [history, setHistory] = useState<any[]>([]);
   const isSaving = useRef(false);
 
+  const getStatusLabel = (s: string) => {
+    switch (s) {
+      case 'incoming': return 'Входящая';
+      case 'booked': return 'Забронировано';
+      case 'rented': return 'В аренде';
+      case 'completed': return 'Завершено';
+      case 'overdue': return 'Просрочено';
+      case 'emergency': return 'ЧП';
+      case 'cancelled': return 'Отменено';
+      case 'archive': return 'Архив';
+      default: return s;
+    }
+  };
+
   const autoSave = async (newData: any) => {
     if (isSaving.current) return;
     isSaving.current = true;
@@ -560,8 +574,17 @@ const RentalForm: React.FC<PageProps & {
 
   const handleDateApply = (date: Date) => {
     const formatted = formatDateTime(date);
-    handleChange('period', activeDateField, formatted);
+    const newData = {
+      ...formData,
+      period: {
+        ...formData.period,
+        [activeDateField as string]: formatted
+      }
+    };
+    setFormData(newData);
     setActiveDateField(null);
+    autoSave(newData);
+    if (onRefresh) onRefresh();
   };
 
   const handleTopLevelChange = (field: keyof RentalItem, value: any) => {
@@ -581,7 +604,7 @@ const RentalForm: React.FC<PageProps & {
         rental_id: id,
         user_id: user.id,
         action_type: 'status_change',
-        details: `Статус изменен на ${newStatus}`,
+        details: `Статус изменен на ${getStatusLabel(newStatus)}`,
         old_value: formData.status,
         new_value: newStatus
       });
@@ -821,7 +844,7 @@ const RentalForm: React.FC<PageProps & {
           rental_id: initialData.id,
           user_id: user.id,
           action_type: 'status_change',
-          details: `Статус изменен с ${initialData.status} на ${formData.status}`,
+          details: `Статус изменен с ${getStatusLabel(initialData.status)} на ${getStatusLabel(formData.status)}`,
           old_value: initialData.status,
           new_value: formData.status
         });
@@ -1332,7 +1355,17 @@ const RentalForm: React.FC<PageProps & {
               <div className="space-y-4">
                 <div className="space-y-1.5">
                   <label className="text-sm font-medium text-slate-700">Статус оплаты</label>
-                  <select value={formData.payment} onChange={(e) => handleTopLevelChange('payment', e.target.value)} className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-neutral-900/10 focus:border-neutral-900 transition-all bg-white">
+                  <select
+                    value={formData.payment}
+                    onChange={(e) => {
+                      const val = e.target.value as any;
+                      handleTopLevelChange('payment', val);
+                      const newData = { ...formData, payment: val };
+                      autoSave(newData);
+                      if (onRefresh) onRefresh();
+                    }}
+                    className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-neutral-900/10 focus:border-neutral-900 transition-all bg-white"
+                  >
                     <option value="pending">Ожидает</option>
                     <option value="partially">Частично</option>
                     <option value="paid">Оплачено</option>
