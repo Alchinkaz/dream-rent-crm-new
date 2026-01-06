@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { PageProps, ClientItem, VehicleItem, RentalItem } from '../../types';
+import { PageProps, ClientItem, VehicleItem, RentalItem, User as UserType, RentalStatus } from '../../types';
 import { Settings, Check, Clock, CheckCircle2, GripVertical, Search, Calendar as CalendarIcon, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, AlertCircle, Hourglass, CreditCard, LayoutGrid, LayoutList, Copy, ArrowLeft, Save, User, Car, Bike, Wallet, FileText, Trash2, X, ChevronRight as ChevronRightIcon, ChevronDown, ArrowRight, CalendarCheck, Plus, Tag, Archive, Ban, ShieldAlert, Banknote, Camera } from 'lucide-react';
 import { initialCarClients, initialScootClients, initialCarVehicles, initialScootVehicles } from '../../data';
 import { ClientForm } from './Clients';
@@ -403,24 +403,45 @@ interface RentalFormProps {
   onNavigateToVehicle?: (vehicleId: string, fromRentalId?: string) => void;
 }
 
-const RentalForm: React.FC<RentalFormProps> = ({ initialData, onSave, onCancel, onDelete, isCars, onNavigateToClient, onNavigateToVehicle }) => {
-  const isEdit = !!initialData;
-  const [formData, setFormData] = useState<Partial<RentalItem>>(() => {
-    if (initialData) return { ...initialData };
-    return {
-      status: 'incoming',
-      payment: 'pending',
-      amount: '0 ₸',
-      debt: '0 ₸',
-      fine: '0 ₸',
-      deposit: '0 ₸',
-      comment: '',
-      vehicle: { name: '', plate: '', image: '' },
-      client: { name: '', phone: '', avatarUrl: '' },
-      period: { start: '', end: '' },
-      tariffId: ''
-    };
+const RentalForm: React.FC<PageProps & {
+  initialData?: Partial<RentalItem>,
+  isCars: boolean,
+  onSave: (data: any) => void,
+  onCancel: () => void,
+  onDelete?: (id: string) => void
+  onNavigateToClient?: (clientId: string, fromRentalId?: string) => void;
+  onNavigateToVehicle?: (vehicleId: string, fromRentalId?: string) => void;
+  user: UserType | null;
+}> = ({ initialData, isCars, onSave, onCancel, onDelete, onNavigateToClient, onNavigateToVehicle, user }) => {
+  const isEdit = !!initialData?.id;
+  const [formData, setFormData] = useState<Partial<RentalItem>>({
+    status: 'incoming' as const,
+    vehicle: { name: '', plate: '', image: '' },
+    client: { name: '', phone: '', avatarUrl: '' },
+    period: { start: '', end: '' },
+    amount: '0 ₸',
+    payment: 'pending' as const,
+    debt: '0 ₸',
+    fine: '0 ₸',
+    deposit: '0 ₸',
+    comment: '',
+    ...initialData
   });
+
+  const [history, setHistory] = useState<any[]>([]);
+
+  useEffect(() => {
+    if (initialData?.id) {
+      loadHistory();
+    }
+  }, [initialData?.id]);
+
+  const loadHistory = async () => {
+    if (initialData?.id) {
+      const data = await db.rentals.getHistory(initialData.id);
+      setHistory(data);
+    }
+  };
 
   // Action Menu State
   const [isActionMenuOpen, setIsActionMenuOpen] = useState(false);
@@ -524,9 +545,26 @@ const RentalForm: React.FC<RentalFormProps> = ({ initialData, onSave, onCancel, 
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
-  const handleStatusChange = (newStatus: RentalItem['status']) => {
+  const handleStatusChange = async (newStatus: RentalStatus) => {
+    const oldStatus = formData.status;
     setFormData(prev => ({ ...prev, status: newStatus }));
     setIsActionMenuOpen(false);
+
+    if (initialData?.id && user) {
+      try {
+        await db.rentals.addHistory({
+          rental_id: initialData.id,
+          user_id: user.id,
+          action_type: 'status_change',
+          details: `Статус изменен с ${oldStatus} на ${newStatus}`,
+          old_value: oldStatus,
+          new_value: newStatus
+        });
+        loadHistory();
+      } catch (e) {
+        console.error('Error logging status change:', e);
+      }
+    }
   };
 
   const getActionConfig = (status: RentalItem['status'] = 'incoming') => {
@@ -660,7 +698,7 @@ const RentalForm: React.FC<RentalFormProps> = ({ initialData, onSave, onCancel, 
   };
 
   const handlePaymentSave = async (amount: number, method: 'cash' | 'bank') => {
-    if (!initialData?.id || !formData.clientId) {
+    if (!initialData?.id || !formData.clientId || !user) {
       alert('Сначала сохраните аренду');
       return;
     }
@@ -673,7 +711,15 @@ const RentalForm: React.FC<RentalFormProps> = ({ initialData, onSave, onCancel, 
         amount: amount,
         type: 'income',
         method: method,
-        comment: `Оплата по аренде #${initialData.id}`
+        comment: `Оплата по аренде #${initialData.id}`,
+        responsible_user_id: user.id
+      });
+
+      await db.rentals.addHistory({
+        rental_id: initialData.id,
+        user_id: user.id,
+        action_type: 'payment',
+        details: `Принята оплата: ${formatCurrency(amount)} (${method === 'cash' ? 'Наличные' : 'Безнал'})`
       });
 
       // Update local debt state
@@ -682,14 +728,62 @@ const RentalForm: React.FC<RentalFormProps> = ({ initialData, onSave, onCancel, 
       handleChange('debt', '', formatCurrency(newDebt));
 
       alert('Оплата принята');
+      loadHistory();
     } catch (e) {
       console.error(e);
       alert('Ошибка при сохранении оплаты');
     }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSaveComment = async () => {
+    if (!initialData?.id || !user) {
+      alert('Сначала сохраните аренду');
+      return;
+    }
+
+    try {
+      await db.rentals.addHistory({
+        rental_id: initialData.id,
+        user_id: user.id,
+        action_type: 'comment',
+        details: `Добавлен комментарий`,
+        new_value: formData.comment
+      });
+
+      // Also update the rental itself
+      const finalData = {
+        ...formData,
+        amount: formData.amount?.replace(/[^\d]/g, ''),
+        debt: formData.debt?.replace(/[^\d]/g, ''),
+        fine: formData.fine?.replace(/[^\d]/g, ''),
+        deposit: formData.deposit?.replace(/[^\d]/g, '')
+      };
+      await db.rentals.save({ ...finalData, id: initialData.id } as any, isCars ? 'cars' : 'scoots');
+
+      loadHistory();
+      alert('Комментарий сохранен');
+    } catch (e) {
+      console.error(e);
+      alert('Ошибка при сохранении комментария');
+    }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (initialData?.id && user && formData.status !== initialData.status) {
+      try {
+        await db.rentals.addHistory({
+          rental_id: initialData.id,
+          user_id: user.id,
+          action_type: 'status_change',
+          details: `Статус изменен с ${initialData.status} на ${formData.status}`,
+          old_value: initialData.status,
+          new_value: formData.status
+        });
+      } catch (e) {
+        console.error(e);
+      }
+    }
     const finalData = {
       ...formData,
       id: formData.id || '',
@@ -1063,9 +1157,19 @@ const RentalForm: React.FC<RentalFormProps> = ({ initialData, onSave, onCancel, 
             </div>
 
             <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
-              <h3 className="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
-                Комментарий
-              </h3>
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2">
+                  Комментарий
+                </h3>
+                <button
+                  type="button"
+                  onClick={handleSaveComment}
+                  className="flex items-center gap-2 px-3 py-1.5 bg-neutral-900 text-white text-xs font-semibold rounded-lg hover:bg-neutral-800 transition-colors shadow-sm"
+                >
+                  <Save className="w-3.5 h-3.5" />
+                  Сохранить
+                </button>
+              </div>
               <textarea
                 value={formData.comment}
                 onChange={(e) => handleTopLevelChange('comment', e.target.value)}
@@ -1073,6 +1177,54 @@ const RentalForm: React.FC<RentalFormProps> = ({ initialData, onSave, onCancel, 
                 placeholder="Заметки о поездке..."
               />
             </div>
+
+            {/* History Section */}
+            {initialData?.id && (
+              <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
+                <h3 className="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
+                  <FileText className="w-5 h-5 text-slate-400" />
+                  История изменений
+                </h3>
+                <div className="space-y-4">
+                  {history.length > 0 ? (
+                    history.map((h, idx) => (
+                      <div key={h.id || idx} className="flex gap-4 relative">
+                        {idx !== history.length - 1 && (
+                          <div className="absolute left-[18px] top-8 bottom-[-16px] w-[2px] bg-slate-100" />
+                        )}
+                        <div className="flex-shrink-0">
+                          <img
+                            src={h.user?.avatarUrl || 'https://ui-avatars.com/api/?name=S&background=ddd&color=333'}
+                            alt={h.user?.name || 'System'}
+                            className="w-[38px] h-[38px] rounded-full border-2 border-white shadow-sm ring-1 ring-slate-100 object-cover"
+                          />
+                        </div>
+                        <div className="flex-1 pt-0.5">
+                          <div className="flex items-center justify-between mb-1">
+                            <span className="font-bold text-[14px] text-slate-900">{h.user?.name || 'Система'}</span>
+                            <span className="text-[11px] font-medium text-slate-500 bg-slate-50 px-2 py-0.5 rounded-md border border-slate-100">
+                              {h.date}
+                            </span>
+                          </div>
+                          <p className="text-[13px] text-slate-600 leading-relaxed font-medium">
+                            {h.details}
+                          </p>
+                          {h.action === 'comment' && h.newValue && (
+                            <div className="mt-2 p-2.5 bg-slate-50 border border-slate-100 rounded-lg text-slate-700 text-[13px] italic line-clamp-3">
+                              "{h.newValue}"
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="text-center py-8 bg-slate-50 border border-dashed border-slate-200 rounded-xl">
+                      <p className="text-sm text-slate-400 font-medium">История пуста</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Right Column (Financials) */}

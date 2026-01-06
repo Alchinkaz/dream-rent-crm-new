@@ -201,8 +201,8 @@ const App: React.FC = () => {
             Adding key={selectedCompany.id} forces React to remount the component 
             when the company changes, ensuring distinct state and re-triggering animations.
           */}
-          {activePage === 'dashboard' && <Dashboard key={selectedCompany.id} currentCompany={selectedCompany} />}
-          {activePage === 'finance' && <Finance key={selectedCompany.id} currentCompany={selectedCompany} />}
+          {activePage === 'dashboard' && <Dashboard key={selectedCompany.id} currentCompany={selectedCompany} user={user} />}
+          {activePage === 'finance' && <Finance key={selectedCompany.id} currentCompany={selectedCompany} user={user} />}
           {activePage === 'rentals' && (
             <Rentals
               key={selectedCompany.id}
@@ -210,6 +210,7 @@ const App: React.FC = () => {
               onNavigateToClient={handleNavigateToClient}
               onNavigateToVehicle={handleNavigateToVehicle}
               initialRentalId={returnRentalId} // Pass the ID to restore
+              user={user}
             />
           )}
           {activePage === 'warehouse' && (
@@ -218,6 +219,7 @@ const App: React.FC = () => {
               currentCompany={selectedCompany}
               initialSelectedVehicleId={selectedVehicleId}
               onBack={handleBackToPrevious}
+              user={user}
             />
           )}
           {activePage === 'clients' && (
@@ -226,9 +228,10 @@ const App: React.FC = () => {
               currentCompany={selectedCompany}
               initialSelectedClientId={selectedClientId}
               onBack={handleBackToPrevious}
+              user={user}
             />
           )}
-          {activePage === 'settings' && <Settings currentCompany={selectedCompany} />}
+          {activePage === 'settings' && <Settings currentCompany={selectedCompany} user={user} />}
         </main>
       </div>
     </div>

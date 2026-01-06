@@ -147,6 +147,50 @@ export const db = {
                 .delete()
                 .in('id', ids);
             if (error) throw error;
+        },
+
+        async getHistory(rentalId: string) {
+            const { data, error } = await supabase
+                .from('rental_history')
+                .select(`
+                    *,
+                    user:users(name, avatar_url)
+                `)
+                .eq('rental_id', rentalId)
+                .order('created_at', { ascending: false });
+
+            if (error) {
+                console.error('Error fetching history:', error);
+                return [];
+            }
+
+            return (data || []).map(h => ({
+                id: h.id,
+                action: h.action_type,
+                details: h.details,
+                oldValue: h.old_value,
+                newValue: h.new_value,
+                date: formatDateTime(new Date(h.created_at)),
+                user: h.user ? {
+                    name: h.user.name,
+                    avatarUrl: h.user.avatar_url
+                } : null
+            }));
+        },
+
+        async addHistory(history: {
+            rental_id: string;
+            user_id: string;
+            action_type: string;
+            details: string;
+            old_value?: string;
+            new_value?: string;
+        }) {
+            const { error } = await supabase
+                .from('rental_history')
+                .insert(history);
+
+            if (error) throw error;
         }
     },
 
@@ -269,7 +313,8 @@ export const db = {
                 .select(`
                     *,
                     client:clients(name, phone, avatar),
-                    rental:rentals(id)
+                    rental:rentals(id),
+                    responsible:users!payments_responsible_user_id_fkey(name, email, avatar_url)
                 `)
                 .eq('company_id', companyId)
                 .order('created_at', { ascending: false });
@@ -291,10 +336,14 @@ export const db = {
                 paymentType: p.method,
                 amount: (p.type === 'income' ? '+ ' : '- ') + formatCurrency(p.amount),
                 type: p.type,
-                responsible: {
-                    name: 'Admin', // In real app, join with users table
-                    email: 'info@dreamrent.kz',
-                    avatarUrl: 'https://ui-avatars.com/api/?name=Admin&background=0a0a0a&color=fff&bold=true'
+                responsible: p.responsible ? {
+                    name: p.responsible.name,
+                    email: p.responsible.email,
+                    avatarUrl: p.responsible.avatar_url
+                } : {
+                    name: 'Система',
+                    email: '-',
+                    avatarUrl: 'https://ui-avatars.com/api/?name=S&background=ddd&color=333'
                 }
             }));
         },
@@ -306,6 +355,7 @@ export const db = {
             type: 'income' | 'expense';
             method: 'cash' | 'bank';
             comment?: string;
+            responsible_user_id: string;
         }) {
             const id = `pay-${Math.random().toString(36).substring(2, 9)}`;
             const { error } = await supabase

@@ -53,6 +53,8 @@ export interface PageProps {
   initialRentalId?: string | null;
   // Handler to return to the previous page (global navigation)
   onBack?: () => void;
+  // Current logged in user for tracking actions
+  user: User | null;
 }
 
 // Client Interfaces
