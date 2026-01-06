@@ -147,7 +147,7 @@ const DateTimePicker: React.FC<DateTimePickerProps> = ({ initialDate, onApply, o
     const firstDay = getFirstDayOfMonth(year, month);
     const days = [];
 
-    for (let i = 0; i < firstDay; i++) days.push(<div key={`empty-${i}`} className="w-8 h-8"></div>);
+    for (let i = 0; i < firstDay; i++) days.push(<div key={`empty-${i}`} className="w-10 h-10"></div>);
 
     for (let i = 1; i <= daysInMonth; i++) {
       const date = new Date(year, month, i);
@@ -162,7 +162,7 @@ const DateTimePicker: React.FC<DateTimePickerProps> = ({ initialDate, onApply, o
           type="button"
           onClick={() => handleDayClick(i)}
           className={`
-                      w-8 h-8 rounded-lg flex items-center justify-center text-sm transition-colors
+                      w-10 h-10 rounded-lg flex items-center justify-center text-sm transition-colors
                       ${isSelected ? 'bg-neutral-900 text-white font-medium' : 'text-slate-700 hover:bg-slate-100'}
                       ${isToday && !isSelected ? 'text-blue-600 font-bold' : ''}
                   `}
@@ -191,14 +191,14 @@ const DateTimePicker: React.FC<DateTimePickerProps> = ({ initialDate, onApply, o
   }, []);
 
   return (
-    <div className={`absolute z-50 mt-2 bg-white rounded-xl shadow-2xl border border-slate-200 p-4 w-[400px] animate-in fade-in zoom-in-95 duration-200 flex flex-col gap-4 ${positionClass}`} onClick={(e) => e.stopPropagation()}>
+    <div className={`absolute z-50 mt-2 bg-white rounded-xl shadow-2xl border border-slate-200 p-4 w-[480px] animate-in fade-in zoom-in-95 duration-200 flex flex-col gap-4 ${positionClass}`} onClick={(e) => e.stopPropagation()}>
       {/* Use items-stretch to let calendar height dictate container height, and time column fill it */}
       <div className="flex gap-4 items-stretch">
         {/* Calendar Section */}
         <div className="flex-1">
           <div className="flex items-center justify-between mb-3 px-1">
             <button type="button" onClick={() => setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1, 1))} className="p-1 hover:bg-slate-100 rounded-md text-slate-500"><ChevronLeft className="w-4 h-4" /></button>
-            <span className="text-sm font-semibold text-slate-800 capitalize">{MONTH_NAMES[currentMonth.getMonth()]} {currentMonth.getFullYear()}</span>
+            <span className="text-base font-bold text-slate-800 capitalize">{MONTH_NAMES[currentMonth.getMonth()]} {currentMonth.getFullYear()}</span>
             <button type="button" onClick={() => setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 1))} className="p-1 hover:bg-slate-100 rounded-md text-slate-500"><ChevronRight className="w-4 h-4" /></button>
           </div>
           <div className="grid grid-cols-7 mb-2">
