@@ -412,7 +412,7 @@ const RentalForm: React.FC<PageProps & {
   onNavigateToClient?: (clientId: string, fromRentalId?: string) => void;
   onNavigateToVehicle?: (vehicleId: string, fromRentalId?: string) => void;
   user: UserType | null;
-}> = ({ initialData, isCars, onSave, onCancel, onDelete, onNavigateToClient, onNavigateToVehicle, user }) => {
+}> = ({ initialData, isCars, onSave, onCancel, onDelete, onNavigateToClient, onNavigateToVehicle, user, currentCompany }) => {
   const isEdit = !!initialData?.id;
   const [formData, setFormData] = useState<Partial<RentalItem>>({
     status: 'incoming' as const,
@@ -431,7 +431,18 @@ const RentalForm: React.FC<PageProps & {
   const [history, setHistory] = useState<any[]>([]);
   const isSaving = useRef(false);
 
-  // Generate ID if missing (for background saving)
+  const autoSave = async (newData: any) => {
+    if (isSaving.current) return;
+    isSaving.current = true;
+    try {
+      await db.rentals.save(newData, currentCompany.id);
+    } catch (err) {
+      console.error('Auto-save error:', err);
+    } finally {
+      isSaving.current = false;
+    }
+  };
+
   useEffect(() => {
     if (!formData.id) {
       setFormData(prev => ({
@@ -442,14 +453,15 @@ const RentalForm: React.FC<PageProps & {
   }, []);
 
   useEffect(() => {
-    if (initialData?.id) {
+    if (initialData?.id || formData.id) {
       loadHistory();
     }
   }, [initialData?.id]);
 
   const loadHistory = async () => {
-    if (initialData?.id) {
-      const data = await db.rentals.getHistory(initialData.id);
+    const id = initialData?.id || formData.id;
+    if (id) {
+      const data = await db.rentals.getHistory(id);
       setHistory(data);
     }
   };
@@ -535,78 +547,53 @@ const RentalForm: React.FC<PageProps & {
   }, [activeDateField, isClientSearchFocused, isVehicleSearchFocused, isActionMenuOpen]);
 
   const handleChange = (section: keyof RentalItem, field: string, value: string) => {
-    setFormData(prev => {
-      const newData = { ...prev };
-      if (section === 'client' || section === 'vehicle' || section === 'period') {
-        newData[section] = { ...prev[section] as any, [field]: value };
-      } else {
-        (newData as any)[section] = value;
-      }
-      // Trigger auto-save if it's not a text field change (which we'll handle on blur)
-      if (section === 'period' || section === 'status') {
-        autoSave(newData);
-      }
-      return newData;
-    });
-  };
-
-  const handleBlur = () => {
-    autoSave(formData);
+    if (section === 'client' || section === 'vehicle' || section === 'period') {
+      setFormData(prev => ({
+        ...prev,
+        [section]: { ...prev[section] as any, [field]: value }
+      }));
+    } else {
+      setFormData(prev => ({ ...prev, [section]: value }));
+    }
   };
 
   const handleDateApply = (date: Date) => {
     if (!activeDateField) return;
     const formatted = formatDateTime(date);
-    handleChange('period', activeDateField, formatted); // This will trigger auto-save inside handleChange
+    handleChange('period', activeDateField, formatted);
     setActiveDateField(null);
   };
 
-  const autoSave = async (data: Partial<RentalItem>) => {
-    if (isSaving.current || !data.clientId || !data.vehicleId) return;
-
-    isSaving.current = true;
-    try {
-      await db.rentals.save(data, isCars ? 'cars' : 'scoots');
-    } catch (e) {
-      console.error('Auto-save error:', e);
-    } finally {
-      isSaving.current = false;
-    }
-  };
-
   const handleTopLevelChange = (field: keyof RentalItem, value: any) => {
-    const newData = { ...formData, [field]: value };
-    setFormData(newData);
-    autoSave(newData);
+    setFormData(prev => ({ ...prev, [field]: value }));
   };
 
   const handleStatusChange = async (newStatus: RentalStatus) => {
-    const oldStatus = formData.status;
-    const newData = { ...formData, status: newStatus };
-    setFormData(newData);
-    setIsActionMenuOpen(false);
+    const id = initialData?.id || formData.id;
+    if (!id || !user) return;
 
-    if (user && newData.id && newData.clientId && newData.vehicleId) {
-      try {
-        // Save rental state first
-        await db.rentals.save(newData, isCars ? 'cars' : 'scoots');
+    try {
+      // 1. Save current state with new status first
+      const updatedData = { ...formData, status: newStatus };
+      await db.rentals.save(updatedData, currentCompany.id);
 
-        // Log history
-        await db.rentals.addHistory({
-          rental_id: newData.id,
-          user_id: user.id,
-          action_type: 'status_change',
-          details: `Статус изменен с ${oldStatus} на ${newStatus}`,
-          old_value: oldStatus,
-          new_value: newStatus
-        });
+      // 2. Add history record
+      await db.rentals.addHistory({
+        rental_id: id,
+        user_id: user.id,
+        action_type: 'status_change',
+        details: `Статус изменен на ${newStatus}`,
+        old_value: formData.status,
+        new_value: newStatus
+      });
 
-        loadHistory();
-      } catch (e) {
-        console.error('Error logging status change:', e);
-      }
-    } else if (!newData.clientId || !newData.vehicleId) {
-      alert('Выберите клиента и транспорт перед сменой статуса');
+      // 3. Update local state
+      setFormData(updatedData);
+      setIsActionMenuOpen(false);
+      loadHistory();
+    } catch (err) {
+      console.error('Status change error:', err);
+      alert('Ошибка при смене статуса');
     }
   };
 
@@ -746,62 +733,63 @@ const RentalForm: React.FC<PageProps & {
   };
 
   const handlePaymentSave = async (amount: number, method: 'cash' | 'bank') => {
-    if (!formData.id || !formData.clientId || !user) {
+    const id = initialData?.id || formData.id;
+    if (!id || !formData.clientId || !user) {
       alert('Заполните данные аренды перед оплатой');
       return;
     }
 
     try {
-      // Ensure rental is saved first
-      await db.rentals.save(formData, isCars ? 'cars' : 'scoots');
+      // 1. Ensure rental is saved/created first
+      await db.rentals.save(formData, currentCompany.id);
 
+      // 2. Save payment
       await db.payments.save({
-        company_id: isCars ? 'cars' : 'scoots',
-        rental_id: formData.id,
+        company_id: currentCompany.id,
+        rental_id: id,
         client_id: formData.clientId,
         amount: amount,
         type: 'income',
         method: method,
-        comment: `Оплата по аренде #${formData.id}`,
+        comment: `Оплата по аренде #${id}`,
         responsible_user_id: user.id
       });
 
+      // 3. Add to history
       await db.rentals.addHistory({
-        rental_id: formData.id,
+        rental_id: id,
         user_id: user.id,
         action_type: 'payment',
         details: `Принята оплата: ${formatCurrency(amount)} (${method === 'cash' ? 'Наличные' : 'Безнал'})`
       });
 
-      // Update local debt state
+      // 4. Update local debt state and auto-save it
       const currentDebt = parseInt(formData.debt?.replace(/[^\d]/g, '') || '0');
       const newDebt = Math.max(0, currentDebt - amount);
       const newData = { ...formData, debt: formatCurrency(newDebt) };
       setFormData(newData);
-
-      // Save updated debt to DB
-      await db.rentals.save(newData, isCars ? 'cars' : 'scoots');
+      await db.rentals.save(newData, currentCompany.id);
 
       alert('Оплата принята');
       loadHistory();
+      setIsPaymentModalOpen(false);
     } catch (e) {
       console.error(e);
-      alert('Ошибка при сохранении оплаты');
+      alert('Ошибка при сохранении оплаты: ' + (e as any).message);
     }
   };
 
   const handleSaveComment = async () => {
-    if (!formData.id || !user || !formData.clientId || !formData.vehicleId) {
-      alert('Заполните данные аренды перед сохранением комментария');
-      return;
-    }
+    const id = initialData?.id || formData.id;
+    if (!id || !user) return;
 
     try {
-      // Save current state first
-      await db.rentals.save(formData, isCars ? 'cars' : 'scoots');
+      // 1. Save rental first to ensure comment is in DB
+      await db.rentals.save(formData, currentCompany.id);
 
+      // 2. Add history record
       await db.rentals.addHistory({
-        rental_id: formData.id,
+        rental_id: id,
         user_id: user.id,
         action_type: 'comment',
         details: `Добавлен комментарий`,
@@ -865,29 +853,24 @@ const RentalForm: React.FC<PageProps & {
             </button>
             <div>
               <h1 className="text-xl font-bold text-slate-900 flex items-center gap-2">
-                {isEdit ? `Аренда #${formData.id}` : 'Новая аренда'}
-                {getStatusBadge(formData.status || 'incoming')}
+                {isEdit ? `Аренда #${initialData.id}` : 'Новая аренда'}
+                {isEdit && getStatusBadge(formData.status || 'incoming')}
               </h1>
             </div>
           </div>
           <div className="flex items-center gap-3">
-            {!isEdit && (
-              <button
-                onClick={async () => {
-                  try {
-                    await db.rentals.save(formData, isCars ? 'cars' : 'scoots');
-                    onSave(formData as any);
-                  } catch (e) {
-                    alert('Ошибка при сохранении: ' + (e as any).message);
-                  }
-                }}
-                className="flex items-center gap-2 px-5 py-2 bg-neutral-900 text-white font-medium rounded-lg hover:bg-neutral-800 transition-colors shadow-sm"
-              >
-                <Save className="w-4 h-4" />Создать
-              </button>
-            )}
-            {isEdit && (
-              <span className="text-xs text-slate-400 font-medium">Сохранено автоматически</span>
+            {isEdit ? (
+              <div className="flex items-center gap-2 px-3 py-2 text-slate-400 text-sm font-medium animate-pulse">
+                <Check className="w-4 h-4 text-emerald-500" />
+                Сохранено автоматически
+              </div>
+            ) : (
+              <>
+                <button type="button" onClick={onCancel} className="px-4 py-2 text-slate-600 font-medium hover:bg-slate-100 rounded-lg transition-colors">Отмена</button>
+                <button onClick={handleSubmit} className="flex items-center gap-2 px-6 py-2 bg-neutral-900 text-white font-semibold rounded-xl hover:bg-neutral-800 transition-all shadow-lg shadow-neutral-200 active:scale-[0.98]">
+                  Создать
+                </button>
+              </>
             )}
           </div>
         </div>
@@ -1235,7 +1218,7 @@ const RentalForm: React.FC<PageProps & {
               <textarea
                 value={formData.comment}
                 onChange={(e) => handleTopLevelChange('comment', e.target.value)}
-                onBlur={handleBlur}
+                onBlur={() => autoSave(formData)}
                 className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-neutral-900/10 focus:border-neutral-900 transition-all h-32 resize-none"
                 placeholder="Заметки о поездке..."
               />
@@ -1353,19 +1336,43 @@ const RentalForm: React.FC<PageProps & {
                 <div className="pt-2 space-y-4">
                   <div className="flex items-center justify-between">
                     <span className="text-sm text-slate-600">Сумма аренды</span>
-                    <input type="text" value={formData.amount} onChange={(e) => handleTopLevelChange('amount', e.target.value)} onBlur={handleBlur} className="w-32 text-right px-2 py-1 border border-slate-200 rounded bg-slate-50 focus:bg-white focus:outline-none focus:border-neutral-500 font-medium" />
+                    <input
+                      type="text"
+                      value={formData.amount}
+                      onChange={(e) => handleTopLevelChange('amount', e.target.value)}
+                      onBlur={() => autoSave(formData)}
+                      className="w-32 text-right px-2 py-1 border border-slate-200 rounded bg-slate-50 focus:bg-white focus:outline-none focus:border-neutral-500 font-bold text-slate-900"
+                    />
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="text-sm text-slate-600">Залог</span>
-                    <input type="text" value={formData.deposit} onChange={(e) => handleTopLevelChange('deposit', e.target.value)} onBlur={handleBlur} className="w-32 text-right px-2 py-1 border border-slate-200 rounded bg-slate-50 focus:bg-white focus:outline-none focus:border-neutral-500 font-medium text-emerald-600" />
+                    <input
+                      type="text"
+                      value={formData.deposit}
+                      onChange={(e) => handleTopLevelChange('deposit', e.target.value)}
+                      onBlur={() => autoSave(formData)}
+                      className="w-32 text-right px-2 py-1 border border-slate-200 rounded bg-slate-50 focus:bg-white focus:outline-none focus:border-neutral-500 font-medium text-emerald-600"
+                    />
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="text-sm text-slate-600">Штрафы</span>
-                    <input type="text" value={formData.fine} onChange={(e) => handleTopLevelChange('fine', e.target.value)} onBlur={handleBlur} className="w-32 text-right px-2 py-1 border border-slate-200 rounded bg-slate-50 focus:bg-white focus:outline-none focus:border-neutral-500 font-medium text-red-600" />
+                    <input
+                      type="text"
+                      value={formData.fine}
+                      onChange={(e) => handleTopLevelChange('fine', e.target.value)}
+                      onBlur={() => autoSave(formData)}
+                      className="w-32 text-right px-2 py-1 border border-slate-200 rounded bg-slate-50 focus:bg-white focus:outline-none focus:border-neutral-500 font-medium text-red-600"
+                    />
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="text-sm text-slate-600">Долг клиента</span>
-                    <input type="text" value={formData.debt} onChange={(e) => handleTopLevelChange('debt', e.target.value)} onBlur={handleBlur} className="w-32 text-right px-2 py-1 border border-slate-200 rounded bg-slate-50 focus:bg-white focus:outline-none focus:border-neutral-500 font-medium text-red-600" />
+                    <input
+                      type="text"
+                      value={formData.debt}
+                      onChange={(e) => handleTopLevelChange('debt', e.target.value)}
+                      onBlur={() => autoSave(formData)}
+                      className="w-32 text-right px-2 py-1 border border-slate-200 rounded bg-slate-50 focus:bg-white focus:outline-none focus:border-neutral-500 font-medium text-red-600"
+                    />
                   </div>
 
                   <button
@@ -1632,7 +1639,7 @@ export const DateRangePicker: React.FC<DateRangePickerProps> = ({ onApply, onClo
   );
 };
 
-export const Rentals: React.FC<PageProps> = ({ currentCompany, onNavigateToClient, onNavigateToVehicle, initialRentalId }) => {
+export const Rentals: React.FC<PageProps> = ({ currentCompany, onNavigateToClient, onNavigateToVehicle, initialRentalId, user }) => {
   const [activeTab, setActiveTab] = useState<TabId>('all');
   const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
   const [dateRange, setDateRange] = useState<{ start: Date | null, end: Date | null }>({ start: null, end: null });
@@ -1794,6 +1801,8 @@ export const Rentals: React.FC<PageProps> = ({ currentCompany, onNavigateToClien
         onDelete={handleDeleteRental}
         onNavigateToClient={onNavigateToClient}
         onNavigateToVehicle={onNavigateToVehicle}
+        user={user}
+        currentCompany={currentCompany}
       />
     );
   }
