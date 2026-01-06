@@ -1,37 +1,28 @@
 import { supabase } from './supabase';
-import { RentalItem, ClientItem, VehicleItem } from '../types';
-import { formatCurrency, parseCurrency, formatDateTime, parseDateTime } from './utils';
-
-export const uploadImage = async (file: File, bucket: string = 'vehicles'): Promise<string | null> => {
-    const fileExt = file.name.split('.').pop();
-    const fileName = `${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`;
-    const filePath = `${fileName}`;
-
-    const { error: uploadError } = await supabase.storage
-        .from(bucket)
-        .upload(filePath, file);
-
-    if (uploadError) {
-        console.error('Error uploading image:', uploadError);
-        return null;
-    }
-
-    const { data } = supabase.storage.from(bucket).getPublicUrl(filePath);
-    return data.publicUrl;
-};
+import { formatCurrency, formatDateTime } from './utils';
+import { ClientItem, VehicleItem, RentalItem, RentalStatus } from '../types';
 
 export const db = {
     rentals: {
-        async list(companyId: string): Promise<RentalItem[]> {
-            const { data, error } = await supabase
+        async list(companyId: string, tab: string = 'all'): Promise<RentalItem[]> {
+            let query = supabase
                 .from('rentals')
                 .select(`
-          *,
-          client:clients(name, phone, avatar),
-          vehicle:vehicles(name, plate, image)
-        `)
-                .eq('company_id', companyId)
-                .order('created_at', { ascending: false });
+                    *,
+                    client:clients(name, phone, avatar),
+                    vehicle:vehicles(name, plate, image)
+                `)
+                .eq('company_id', companyId);
+
+            if (tab !== 'all' && tab !== 'archive') {
+                query = query.eq('status', tab);
+            } else if (tab === 'archive') {
+                query = query.eq('status', 'archive');
+            } else {
+                query = query.neq('status', 'archive');
+            }
+
+            const { data, error } = await query.order('created_at', { ascending: false });
 
             if (error) {
                 console.error('Error fetching rentals:', error);
@@ -42,18 +33,18 @@ export const db = {
                 id: r.id,
                 status: r.status,
                 vehicle: {
-                    name: r.vehicle?.name || '',
+                    name: r.vehicle?.name || 'Удаленный транспорт',
                     plate: r.vehicle?.plate || '',
                     image: r.vehicle?.image || ''
                 },
                 client: {
-                    name: r.client?.name || '',
+                    name: r.client?.name || 'Удаленный клиент',
                     phone: r.client?.phone || '',
                     avatarUrl: r.client?.avatar || ''
                 },
                 period: {
-                    start: r.start_date ? formatDateTime(new Date(r.start_date)) : '',
-                    end: r.end_date ? formatDateTime(new Date(r.end_date)) : ''
+                    start: formatDateTime(new Date(r.start_date)),
+                    end: formatDateTime(new Date(r.end_date))
                 },
                 amount: formatCurrency(r.amount),
                 payment: r.payment_status,
@@ -67,85 +58,44 @@ export const db = {
             }));
         },
 
-        async save(rental: RentalItem, companyId: string) {
-            // Find client and vehicle IDs first (this is a bit inefficient, but UI provides objects)
-            // In a real app, we'd have the IDs directly in the form state.
-            // Since the UI uses plate/name, we might need to find them.
-
-            let clientId = rental.clientId;
-            let vehicleId = rental.vehicleId;
-
-            if (!vehicleId) {
-                const { data: vData } = await supabase
-                    .from('vehicles')
-                    .select('id')
-                    .eq('plate', rental.vehicle.plate)
-                    .single();
-                vehicleId = vData?.id;
-            }
-
-            if (!clientId) {
-                const { data: cData } = await supabase
-                    .from('clients')
-                    .select('id')
-                    .eq('phone', rental.client.phone)
-                    .single();
-                clientId = cData?.id;
+        async save(rental: any, companyId: string) {
+            if (!rental.id || rental.id === '') {
+                rental.id = Math.floor(1000 + Math.random() * 9000).toString();
             }
 
             const payload = {
                 company_id: companyId,
-                client_id: clientId,
-                vehicle_id: vehicleId,
+                client_id: rental.clientId,
+                vehicle_id: rental.vehicleId,
                 status: rental.status,
-                start_date: parseDateTime(rental.period.start).toISOString(),
-                end_date: parseDateTime(rental.period.end).toISOString(),
-                amount: parseCurrency(rental.amount),
+                start_date: rental.period?.start ? new Date(rental.period.start).toISOString() : null,
+                end_date: rental.period?.end ? new Date(rental.period.end).toISOString() : null,
+                amount: parseFloat(rental.amount) || 0,
                 payment_status: rental.payment,
-                debt: parseCurrency(rental.debt),
-                fine: parseCurrency(rental.fine),
-                deposit: parseCurrency(rental.deposit),
+                debt: parseFloat(rental.debt) || 0,
+                fine: parseFloat(rental.fine) || 0,
+                deposit: parseFloat(rental.deposit) || 0,
                 comment: rental.comment,
-                tariff_id: rental.tariffId
+                tariff_id: rental.tariffId,
+                updated_at: new Date().toISOString()
             };
 
-            if (rental.id && !rental.id.startsWith('temp-')) {
-                const { error } = await supabase
-                    .from('rentals')
-                    .update(payload)
-                    .eq('id', rental.id);
-                if (error) throw error;
-            } else {
-                const insertPayload = { ...payload };
-                if (rental.id) {
-                    // @ts-ignore
-                    insertPayload.id = rental.id;
-                }
-                const { error } = await supabase
-                    .from('rentals')
-                    .insert(insertPayload);
-                if (error) throw error;
-            }
+            const { error } = await supabase
+                .from('rentals')
+                .upsert({ ...payload, id: rental.id });
+
+            if (error) throw error;
         },
 
         async delete(id: string) {
-            // Manual cascade delete for payments if not handled by DB
             await supabase.from('payments').delete().eq('rental_id', id);
-
-            const { error } = await supabase
-                .from('rentals')
-                .delete()
-                .eq('id', id);
+            const { error } = await supabase.from('rentals').delete().eq('id', id);
             if (error) throw error;
         },
-        async deleteBulk(ids: string[]) {
-            // Manual cascade delete for payments
-            await supabase.from('payments').delete().in('rental_id', ids);
 
-            const { error } = await supabase
-                .from('rentals')
-                .delete()
-                .in('id', ids);
+        async deleteBulk(ids: string[]) {
+            await supabase.from('payments').delete().in('rental_id', ids);
+            const { error } = await supabase.from('rentals').delete().in('id', ids);
             if (error) throw error;
         },
 
@@ -154,7 +104,7 @@ export const db = {
                 .from('rental_history')
                 .select(`
                     *,
-                    user:users(name, avatar_url)
+                    user:users!user_id(name, avatar_url)
                 `)
                 .eq('rental_id', rentalId)
                 .order('created_at', { ascending: false });
@@ -189,7 +139,6 @@ export const db = {
             const { error } = await supabase
                 .from('rental_history')
                 .insert(history);
-
             if (error) throw error;
         }
     },
@@ -234,19 +183,15 @@ export const db = {
             const { error } = await supabase
                 .from('clients')
                 .upsert({ ...payload, id: client.id });
-
             if (error) throw error;
         },
         async delete(id: string) {
-            // Note: payments often depend on rentals, but some might be linked only to client
             await supabase.from('payments').delete().eq('client_id', id);
-
             const { error } = await supabase.from('clients').delete().eq('id', id);
             if (error) throw error;
         },
         async deleteBulk(ids: string[]) {
             await supabase.from('payments').delete().in('client_id', ids);
-
             const { error } = await supabase.from('clients').delete().in('id', ids);
             if (error) throw error;
         }
@@ -293,7 +238,6 @@ export const db = {
             const { error } = await supabase
                 .from('vehicles')
                 .upsert({ ...payload, id: vehicle.id });
-
             if (error) throw error;
         },
         async delete(id: string) {
@@ -314,7 +258,7 @@ export const db = {
                     *,
                     client:clients(name, phone, avatar),
                     rental:rentals(id),
-                    responsible:users(name, email, avatar_url)
+                    responsible:users!responsible_user_id(name, email, avatar_url)
                 `)
                 .eq('company_id', companyId)
                 .order('created_at', { ascending: false });
@@ -337,9 +281,9 @@ export const db = {
                 amount: (p.type === 'income' ? '+ ' : '- ') + formatCurrency(p.amount),
                 type: p.type,
                 responsible: p.responsible ? {
-                    name: p.responsible.name,
-                    email: p.responsible.email,
-                    avatarUrl: p.responsible.avatar_url
+                    name: (p.responsible as any).name,
+                    email: (p.responsible as any).email,
+                    avatarUrl: (p.responsible as any).avatar_url
                 } : {
                     name: 'Система',
                     email: '-',
@@ -364,7 +308,6 @@ export const db = {
                     id,
                     ...payment
                 });
-
             if (error) throw error;
         },
         async delete(id: string) {
