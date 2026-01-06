@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Sidebar } from './components/Sidebar';
 import { Navbar } from './components/Navbar';
-import { PageId, Company } from './types';
+import { PageId, Company, User as UserType } from './types';
 import { Dashboard } from './components/pages/Dashboard';
 import { Finance } from './components/pages/Finance';
 import { Rentals } from './components/pages/Rentals';
@@ -32,14 +32,36 @@ const App: React.FC = () => {
 
   const { initialCompany, finalPage } = getInitialState();
 
+  const [user, setUser] = useState<UserType | null>(() => {
+    const saved = typeof window !== 'undefined' ? localStorage.getItem('dreamrent_user') : null;
+    return saved ? JSON.parse(saved) : null;
+  });
+
   const [isAuthenticated, setIsAuthenticated] = useState(() => {
     return typeof window !== 'undefined' && localStorage.getItem('dreamrent_auth') === 'true';
   });
 
+  const filteredCompanies = user?.companyId
+    ? companies.filter(c => c.id === user.companyId)
+    : companies;
+
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   // Set Dashboard as default (Main Page)
   const [activePage, setActivePage] = useState<PageId>(finalPage);
-  const [selectedCompany, setSelectedCompany] = useState<Company>(initialCompany);
+  const [selectedCompany, setSelectedCompany] = useState<Company>(() => {
+    if (user?.companyId) {
+      return companies.find(c => c.id === user.companyId) || initialCompany;
+    }
+    return initialCompany;
+  });
+
+  // Effect to sync company when user changes (e.g. login)
+  useEffect(() => {
+    if (user?.companyId) {
+      const company = companies.find(c => c.id === user.companyId);
+      if (company) setSelectedCompany(company);
+    }
+  }, [user]);
 
   // State for specific client navigation
   const [selectedClientId, setSelectedClientId] = useState<string | null>(null);
@@ -109,7 +131,7 @@ const App: React.FC = () => {
       setReturnPage(null);
       setSelectedClientId(null);
       setSelectedVehicleId(null);
-      // Note: We do NOT clear returnRentalId here, 
+      // Note: We do NOT clear returnRentalId here,
       // because the Rentals component needs to consume it on mount.
       // It should handle the state restoration.
     } else {
@@ -135,14 +157,18 @@ const App: React.FC = () => {
     setReturnRentalId(null);
   };
 
-  const handleLogin = () => {
+  const handleLogin = (userData: UserType) => {
+    setUser(userData);
     setIsAuthenticated(true);
     localStorage.setItem('dreamrent_auth', 'true');
+    localStorage.setItem('dreamrent_user', JSON.stringify(userData));
   };
 
   const handleLogout = () => {
+    setUser(null);
     setIsAuthenticated(false);
     localStorage.removeItem('dreamrent_auth');
+    localStorage.removeItem('dreamrent_user');
   };
 
   if (!isAuthenticated) {
@@ -157,14 +183,15 @@ const App: React.FC = () => {
         toggleSidebar={toggleSidebar}
         activePage={activePage}
         onNavigate={handlePageChange}
-        companies={companies}
+        companies={filteredCompanies}
         selectedCompany={selectedCompany}
         onSelectCompany={setSelectedCompany}
+        user={user}
       />
 
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-        <Navbar title={getPageTitle(activePage)} onLogout={handleLogout} />
+        <Navbar title={getPageTitle(activePage)} onLogout={handleLogout} user={user} />
 
         {/* Changed from overflow-y-auto to overflow-hidden + relative to support internal scrolling pages */}
         <main className="flex-1 flex flex-col bg-slate-50 overflow-hidden relative">

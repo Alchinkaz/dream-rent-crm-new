@@ -1,11 +1,11 @@
 import React, { useState } from 'react';
-import { 
-  Wallet, 
-  Clipboard, 
-  Warehouse, 
-  Users, 
-  Settings, 
-  ChevronLeft, 
+import {
+  Wallet,
+  Clipboard,
+  Warehouse,
+  Users,
+  Settings,
+  ChevronLeft,
   Menu,
   ChevronsUpDown,
   Car,
@@ -24,21 +24,24 @@ const navItems: NavItem[] = [
   { id: 'settings', label: 'Настройки', icon: Settings },
 ];
 
-export const Sidebar: React.FC<SidebarProps> = ({ 
-  isCollapsed, 
-  toggleSidebar, 
-  activePage, 
+export const Sidebar: React.FC<SidebarProps> = ({
+  isCollapsed,
+  toggleSidebar,
+  activePage,
   onNavigate,
   companies,
   selectedCompany,
-  onSelectCompany
+  onSelectCompany,
+  user
 }) => {
   const [isCompanyMenuOpen, setIsCompanyMenuOpen] = useState(false);
+
+  const canSwitchCompanies = user?.role === 'admin' || companies.length > 1;
 
   const CompanyIcon = selectedCompany.type === 'cars' ? Car : Bike;
 
   return (
-    <aside 
+    <aside
       className={`
         h-screen bg-neutral-950 text-white flex flex-col 
         transition-all duration-300 ease-in-out shadow-xl z-20 border-r border-white/5
@@ -55,8 +58,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
             <span className="font-bold text-2xl tracking-tight whitespace-nowrap text-white">Dream Rent</span>
           </div>
         )}
-        
-        <button 
+
+        <button
           onClick={toggleSidebar}
           className="p-2 rounded-lg hover:bg-neutral-800 transition-colors text-neutral-500 hover:text-neutral-300"
           aria-label={isCollapsed ? "Expand Sidebar" : "Collapse Sidebar"}
@@ -73,17 +76,17 @@ export const Sidebar: React.FC<SidebarProps> = ({
             <div key={item.id} className="relative px-3">
               {/* Active Indicator Line */}
               {isActive && (
-                <div 
+                <div
                   className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-8 bg-white rounded-r-full shadow-[0_0_8px_rgba(255,255,255,0.4)] transition-all duration-300"
                 />
               )}
-              
+
               <button
                 onClick={() => onNavigate(item.id)}
                 className={`
                   w-full flex items-center p-3 rounded-xl transition-all duration-200 group
-                  ${isActive 
-                    ? 'bg-neutral-900 text-white' 
+                  ${isActive
+                    ? 'bg-neutral-900 text-white'
                     : 'text-neutral-500 hover:bg-neutral-900/50 hover:text-neutral-300'
                   }
                   ${isCollapsed ? 'justify-center' : 'justify-start'}
@@ -95,13 +98,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   ${isCollapsed ? '' : 'mr-3.5'} 
                   ${isActive ? 'text-white' : 'text-neutral-500 group-hover:text-neutral-300'}
                 `} />
-                
+
                 {!isCollapsed && (
                   <span className={`whitespace-nowrap overflow-hidden animate-in fade-in duration-300 text-[14px] ${isActive ? 'font-medium' : 'font-normal'}`}>
                     {item.label}
                   </span>
                 )}
-                
+
                 {isCollapsed && (
                   <div className="absolute left-14 ml-2 bg-neutral-900 text-white text-sm px-3 py-1.5 rounded-md opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-50 shadow-xl border border-neutral-800 font-medium">
                     {item.label}
@@ -115,9 +118,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
       {/* Company Switcher Area */}
       <div className={`border-t border-white/10 relative flex-shrink-0 ${isCollapsed ? 'p-3' : 'p-4'}`}>
-        
+
         {/* Company Menu Dropdown */}
-        {isCompanyMenuOpen && (
+        {isCompanyMenuOpen && canSwitchCompanies && (
           <div className={`
             absolute bottom-full left-4 right-4 mb-2 bg-neutral-900 rounded-xl shadow-2xl border border-neutral-800 overflow-hidden z-50
             ${isCollapsed ? 'w-60 left-2' : ''}
@@ -151,11 +154,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
         )}
 
         {/* Selected Company Display */}
-        <button 
-          onClick={() => setIsCompanyMenuOpen(!isCompanyMenuOpen)}
+        <button
+          onClick={() => canSwitchCompanies && setIsCompanyMenuOpen(!isCompanyMenuOpen)}
           className={`
             w-full flex items-center rounded-xl p-2 
-            hover:bg-neutral-900 transition-colors cursor-pointer group outline-none
+            transition-colors outline-none
+            ${canSwitchCompanies ? 'hover:bg-neutral-900 cursor-pointer' : 'cursor-default'}
             ${isCollapsed ? 'justify-center' : 'justify-between'}
           `}
         >
@@ -163,7 +167,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             <div className="bg-neutral-900 p-2 rounded-lg flex-shrink-0 text-white">
               <CompanyIcon className="w-5 h-5" />
             </div>
-            
+
             {!isCollapsed && (
               <div className="flex flex-col items-start overflow-hidden animate-in fade-in duration-300">
                 <span className="text-[13px] font-medium text-white truncate max-w-[120px]">{selectedCompany.name}</span>
@@ -172,10 +176,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
             )}
           </div>
 
-          {!isCollapsed && (
-             <div className="text-neutral-600 group-hover:text-white transition-colors">
-                <ChevronsUpDown className="w-4 h-4" />
-             </div>
+          {!isCollapsed && canSwitchCompanies && (
+            <div className="text-neutral-600 group-hover:text-white transition-colors">
+              <ChevronsUpDown className="w-4 h-4" />
+            </div>
           )}
         </button>
       </div>

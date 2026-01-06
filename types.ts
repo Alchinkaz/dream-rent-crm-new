@@ -9,9 +9,12 @@ export interface NavItem {
 }
 
 export interface User {
+  id: string;
   name: string;
   email: string;
   avatarUrl: string;
+  role: 'admin' | 'manager';
+  companyId?: string | null;
 }
 
 export interface Company {
@@ -30,6 +33,7 @@ export interface SidebarProps {
   companies: Company[];
   selectedCompany: Company;
   onSelectCompany: (company: Company) => void;
+  user: User | null;
 }
 
 export interface PageProps {

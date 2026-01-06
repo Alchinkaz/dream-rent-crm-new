@@ -3,7 +3,7 @@ import { supabase } from '../../lib/supabase';
 import { Lock, User, AlertCircle, ArrowRight } from 'lucide-react';
 
 interface LoginProps {
-    onLogin: () => void;
+    onLogin: (user: any) => void;
 }
 
 export const Login: React.FC<LoginProps> = ({ onLogin }) => {
@@ -31,7 +31,7 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
 
             if (data) {
                 // Success: data contains the user object
-                onLogin();
+                onLogin(data);
             } else {
                 setError('Неверный логин или пароль');
             }
