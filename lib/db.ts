@@ -172,8 +172,8 @@ export const db = {
                 newValue: h.new_value,
                 date: formatDateTime(new Date(h.created_at)),
                 user: h.user ? {
-                    name: h.user.name,
-                    avatarUrl: h.user.avatar_url
+                    name: (h.user as any).name,
+                    avatarUrl: (h.user as any).avatar_url
                 } : null
             }));
         },
@@ -314,7 +314,7 @@ export const db = {
                     *,
                     client:clients(name, phone, avatar),
                     rental:rentals(id),
-                    responsible:users!payments_responsible_user_id_fkey(name, email, avatar_url)
+                    responsible:users(name, email, avatar_url)
                 `)
                 .eq('company_id', companyId)
                 .order('created_at', { ascending: false });
