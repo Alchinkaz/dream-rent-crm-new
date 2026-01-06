@@ -1,5 +1,5 @@
 import { supabase } from './supabase';
-import { formatCurrency, formatDateTime } from './utils';
+import { formatCurrency, formatDateTime, parseDateTime } from './utils';
 import { ClientItem, VehicleItem, RentalItem, RentalStatus } from '../types';
 
 export const db = {
@@ -43,8 +43,8 @@ export const db = {
                     avatarUrl: r.client?.avatar || ''
                 },
                 period: {
-                    start: formatDateTime(new Date(r.start_date)),
-                    end: formatDateTime(new Date(r.end_date))
+                    start: r.start_date ? formatDateTime(new Date(r.start_date)) : '',
+                    end: r.end_date ? formatDateTime(new Date(r.end_date)) : ''
                 },
                 amount: formatCurrency(r.amount),
                 payment: r.payment_status,
@@ -68,13 +68,13 @@ export const db = {
                 client_id: rental.clientId,
                 vehicle_id: rental.vehicleId,
                 status: rental.status,
-                start_date: rental.period?.start ? new Date(rental.period.start).toISOString() : null,
-                end_date: rental.period?.end ? new Date(rental.period.end).toISOString() : null,
-                amount: parseFloat(rental.amount) || 0,
+                start_date: rental.period?.start ? parseDateTime(rental.period.start).toISOString() : null,
+                end_date: rental.period?.end ? parseDateTime(rental.period.end).toISOString() : null,
+                amount: typeof rental.amount === 'string' ? parseFloat(rental.amount.replace(/[^\d.]/g, '')) || 0 : rental.amount,
                 payment_status: rental.payment,
-                debt: parseFloat(rental.debt) || 0,
-                fine: parseFloat(rental.fine) || 0,
-                deposit: parseFloat(rental.deposit) || 0,
+                debt: typeof rental.debt === 'string' ? parseFloat(rental.debt.replace(/[^\d.]/g, '')) || 0 : rental.debt,
+                fine: typeof rental.fine === 'string' ? parseFloat(rental.fine.replace(/[^\d.]/g, '')) || 0 : rental.fine,
+                deposit: typeof rental.deposit === 'string' ? parseFloat(rental.deposit.replace(/[^\d.]/g, '')) || 0 : rental.deposit,
                 comment: rental.comment,
                 tariff_id: rental.tariffId,
                 updated_at: new Date().toISOString()
@@ -85,6 +85,7 @@ export const db = {
                 .upsert({ ...payload, id: rental.id });
 
             if (error) throw error;
+            return rental.id;
         },
 
         async delete(id: string) {
@@ -122,8 +123,8 @@ export const db = {
                 newValue: h.new_value,
                 date: formatDateTime(new Date(h.created_at)),
                 user: h.user ? {
-                    name: (h.user as any).name,
-                    avatarUrl: (h.user as any).avatar_url
+                    name: h.user.name,
+                    avatarUrl: h.user.avatar_url
                 } : null
             }));
         },
