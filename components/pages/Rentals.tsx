@@ -191,7 +191,7 @@ const DateTimePicker: React.FC<DateTimePickerProps> = ({ initialDate, onApply, o
   }, []);
 
   return (
-    <div className={`absolute z-50 mt-2 bg-white rounded-xl shadow-2xl border border-slate-200 p-4 w-[340px] animate-in fade-in zoom-in-95 duration-200 flex flex-col gap-4 ${positionClass}`} onClick={(e) => e.stopPropagation()}>
+    <div className={`absolute z-50 mt-2 bg-white rounded-xl shadow-2xl border border-slate-200 p-4 w-[400px] animate-in fade-in zoom-in-95 duration-200 flex flex-col gap-4 ${positionClass}`} onClick={(e) => e.stopPropagation()}>
       {/* Use items-stretch to let calendar height dictate container height, and time column fill it */}
       <div className="flex gap-4 items-stretch">
         {/* Calendar Section */}
@@ -213,10 +213,10 @@ const DateTimePicker: React.FC<DateTimePickerProps> = ({ initialDate, onApply, o
         <div className="w-px bg-slate-100"></div>
 
         {/* Time Section - height determined by flex stretch, with absolute scrolling inner container */}
-        <div className="w-24 flex flex-col">
+        <div className="w-32 flex flex-col">
           <div className="text-center text-xs font-semibold text-slate-500 uppercase mb-2">Время</div>
           <div className="flex-1 relative min-h-0">
-            <div className="absolute inset-0 flex gap-1">
+            <div className="absolute inset-0 flex gap-2">
               {/* Hours */}
               <div className="flex-1 overflow-y-auto no-scrollbar rounded-lg bg-slate-50 border border-slate-100 h-full" ref={scrollRefHours}>
                 {Array.from({ length: 24 }).map((_, i) => (
