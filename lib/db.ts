@@ -298,6 +298,25 @@ export const db = {
                 }
             }));
         },
+        async save(payment: {
+            company_id: string;
+            rental_id?: string;
+            client_id?: string;
+            amount: number;
+            type: 'income' | 'expense';
+            method: 'cash' | 'bank';
+            comment?: string;
+        }) {
+            const id = `pay-${Math.random().toString(36).substring(2, 9)}`;
+            const { error } = await supabase
+                .from('payments')
+                .insert({
+                    id,
+                    ...payment
+                });
+
+            if (error) throw error;
+        },
         async delete(id: string) {
             const { error } = await supabase.from('payments').delete().eq('id', id);
             if (error) throw error;

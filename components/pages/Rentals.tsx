@@ -5,7 +5,7 @@ import { initialCarClients, initialScootClients, initialCarVehicles, initialScoo
 import { ClientForm } from './Clients';
 import { VehicleForm } from './Warehouse';
 import { db } from '../../lib/db';
-import { formatDateTime, parseDateTime } from '../../lib/utils';
+import { formatDateTime, parseDateTime, formatCurrency } from '../../lib/utils';
 
 export type TabId = 'all' | 'incoming' | 'booked' | 'rented' | 'completed' | 'overdue' | 'emergency' | 'archive';
 
@@ -269,10 +269,11 @@ const DateTimePicker: React.FC<DateTimePickerProps> = ({ initialDate, onApply, o
 interface PaymentModalProps {
   isOpen: boolean;
   onClose: () => void;
+  onSave: (amount: number, method: 'cash' | 'bank') => void;
   initialAmount?: string;
 }
 
-const PaymentModal: React.FC<PaymentModalProps> = ({ isOpen, onClose, initialAmount }) => {
+const PaymentModal: React.FC<PaymentModalProps> = ({ isOpen, onClose, onSave, initialAmount }) => {
   const [amount, setAmount] = useState(initialAmount || '');
   const [paymentMethod, setPaymentMethod] = useState<'cash' | 'bank'>('cash');
 
@@ -286,7 +287,12 @@ const PaymentModal: React.FC<PaymentModalProps> = ({ isOpen, onClose, initialAmo
   if (!isOpen) return null;
 
   const handleSubmit = () => {
-    // Logic to handle payment would go here
+    const numericAmount = parseInt(amount.replace(/[^\d]/g, '')) || 0;
+    if (numericAmount <= 0) {
+      alert('Введите сумму оплаты');
+      return;
+    }
+    onSave(numericAmount, paymentMethod);
     onClose();
   };
 
@@ -650,6 +656,35 @@ const RentalForm: React.FC<RentalFormProps> = ({ initialData, onSave, onCancel, 
     } catch (e) {
       console.error(e);
       alert('Ошибка при создании транспорта');
+    }
+  };
+
+  const handlePaymentSave = async (amount: number, method: 'cash' | 'bank') => {
+    if (!initialData?.id || !formData.clientId) {
+      alert('Сначала сохраните аренду');
+      return;
+    }
+
+    try {
+      await db.payments.save({
+        company_id: isCars ? 'cars' : 'scoots',
+        rental_id: initialData.id,
+        client_id: formData.clientId,
+        amount: amount,
+        type: 'income',
+        method: method,
+        comment: `Оплата по аренде #${initialData.id}`
+      });
+
+      // Update local debt state
+      const currentDebt = parseInt(formData.debt?.replace(/[^\d]/g, '') || '0');
+      const newDebt = Math.max(0, currentDebt - amount);
+      handleChange('debt', '', formatCurrency(newDebt));
+
+      alert('Оплата принята');
+    } catch (e) {
+      console.error(e);
+      alert('Ошибка при сохранении оплаты');
     }
   };
 
@@ -1204,6 +1239,7 @@ const RentalForm: React.FC<RentalFormProps> = ({ initialData, onSave, onCancel, 
       <PaymentModal
         isOpen={isPaymentModalOpen}
         onClose={() => setIsPaymentModalOpen(false)}
+        onSave={handlePaymentSave}
         initialAmount={formData.debt && formData.debt !== '0 ₸' ? formData.debt.replace(/[^\d]/g, '') : ''}
       />
     </div>
