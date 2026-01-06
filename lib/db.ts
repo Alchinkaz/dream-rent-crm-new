@@ -9,8 +9,8 @@ export const db = {
                 .from('rentals')
                 .select(`
                     *,
-                    client:clients(name, phone, avatar),
-                    vehicle:vehicles(name, plate, image)
+                    clients!client_id(name, phone, avatar),
+                    vehicles!vehicle_id(name, plate, image)
                 `)
                 .eq('company_id', companyId);
 
@@ -29,33 +29,38 @@ export const db = {
                 return [];
             }
 
-            return (data || []).map(r => ({
-                id: r.id,
-                status: r.status,
-                vehicle: {
-                    name: r.vehicle?.name || 'Удаленный транспорт',
-                    plate: r.vehicle?.plate || '',
-                    image: r.vehicle?.image || ''
-                },
-                client: {
-                    name: r.client?.name || 'Удаленный клиент',
-                    phone: r.client?.phone || '',
-                    avatarUrl: r.client?.avatar || ''
-                },
-                period: {
-                    start: r.start_date ? formatDateTime(new Date(r.start_date)) : '',
-                    end: r.end_date ? formatDateTime(new Date(r.end_date)) : ''
-                },
-                amount: formatCurrency(r.amount),
-                payment: r.payment_status,
-                debt: formatCurrency(r.debt),
-                fine: formatCurrency(r.fine),
-                deposit: formatCurrency(r.deposit),
-                comment: r.comment || '',
-                tariffId: r.tariff_id,
-                clientId: r.client_id,
-                vehicleId: r.vehicle_id
-            }));
+            return (data || []).map(r => {
+                const client = Array.isArray(r.clients) ? r.clients[0] : r.clients;
+                const vehicle = Array.isArray(r.vehicles) ? r.vehicles[0] : r.vehicles;
+
+                return {
+                    id: r.id,
+                    status: r.status,
+                    vehicle: {
+                        name: vehicle?.name || 'Удаленный транспорт',
+                        plate: vehicle?.plate || '',
+                        image: vehicle?.image || ''
+                    },
+                    client: {
+                        name: client?.name || 'Удаленный клиент',
+                        phone: client?.phone || '',
+                        avatarUrl: client?.avatar || ''
+                    },
+                    period: {
+                        start: r.start_date ? formatDateTime(new Date(r.start_date)) : '',
+                        end: r.end_date ? formatDateTime(new Date(r.end_date)) : ''
+                    },
+                    amount: formatCurrency(r.amount),
+                    payment: r.payment_status,
+                    debt: formatCurrency(r.debt),
+                    fine: formatCurrency(r.fine),
+                    deposit: formatCurrency(r.deposit),
+                    comment: r.comment || '',
+                    tariffId: r.tariff_id,
+                    clientId: r.client_id,
+                    vehicleId: r.vehicle_id
+                };
+            });
         },
 
         async save(rental: any, companyId: string) {
@@ -70,11 +75,11 @@ export const db = {
                 status: rental.status,
                 start_date: rental.period?.start ? parseDateTime(rental.period.start).toISOString() : null,
                 end_date: rental.period?.end ? parseDateTime(rental.period.end).toISOString() : null,
-                amount: typeof rental.amount === 'string' ? parseFloat(rental.amount.replace(/[^\d.]/g, '')) || 0 : rental.amount,
+                amount: typeof rental.amount === 'string' ? parseFloat(rental.amount.replace(/[^\d.]/g, '')) || 0 : (rental.amount || 0),
                 payment_status: rental.payment,
-                debt: typeof rental.debt === 'string' ? parseFloat(rental.debt.replace(/[^\d.]/g, '')) || 0 : rental.debt,
-                fine: typeof rental.fine === 'string' ? parseFloat(rental.fine.replace(/[^\d.]/g, '')) || 0 : rental.fine,
-                deposit: typeof rental.deposit === 'string' ? parseFloat(rental.deposit.replace(/[^\d.]/g, '')) || 0 : rental.deposit,
+                debt: typeof rental.debt === 'string' ? parseFloat(rental.debt.replace(/[^\d.]/g, '')) || 0 : (rental.debt || 0),
+                fine: typeof rental.fine === 'string' ? parseFloat(rental.fine.replace(/[^\d.]/g, '')) || 0 : (rental.fine || 0),
+                deposit: typeof rental.deposit === 'string' ? parseFloat(rental.deposit.replace(/[^\d.]/g, '')) || 0 : (rental.deposit || 0),
                 comment: rental.comment,
                 tariff_id: rental.tariffId,
                 updated_at: new Date().toISOString()

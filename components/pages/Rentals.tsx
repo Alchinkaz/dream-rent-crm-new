@@ -1653,7 +1653,6 @@ export const Rentals: React.FC<PageProps> = ({ currentCompany, onNavigateToClien
   const [paymentFilter, setPaymentFilter] = useState<'all' | 'paid' | 'partially' | 'pending'>('all');
   const [isPaymentFilterOpen, setIsPaymentFilterOpen] = useState(false);
   const [viewMode, setViewMode] = useState<'table' | 'grid'>('table');
-
   // New States for Navigation
   const [pageView, setPageView] = useState<'list' | 'form'>('list');
   const [selectedRental, setSelectedRental] = useState<RentalItem | null>(null);
@@ -1664,7 +1663,7 @@ export const Rentals: React.FC<PageProps> = ({ currentCompany, onNavigateToClien
   const fetchRentals = async () => {
     setIsLoading(true);
     try {
-      const data = await db.rentals.list(currentCompany.id);
+      const data = await db.rentals.list(currentCompany.id, activeTab);
       setRentalsData(data);
     } catch (err) {
       console.error('Failed to fetch rentals:', err);
@@ -1675,7 +1674,8 @@ export const Rentals: React.FC<PageProps> = ({ currentCompany, onNavigateToClien
 
   useEffect(() => {
     fetchRentals();
-  }, [currentCompany]);
+  }, [currentCompany, activeTab]);
+
 
   useEffect(() => {
     if (initialRentalId && rentalsData.length > 0) {
