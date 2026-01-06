@@ -49,19 +49,21 @@ const App: React.FC = () => {
   // Set Dashboard as default (Main Page)
   const [activePage, setActivePage] = useState<PageId>(finalPage);
   const [selectedCompany, setSelectedCompany] = useState<Company>(() => {
-    if (user?.companyId) {
-      return companies.find(c => c.id === user.companyId) || initialCompany;
+    if (user?.role === 'manager' && user.companyId) {
+      return companies.find(c => c.id === user.companyId) || companies[0];
     }
     return initialCompany;
   });
 
   // Effect to sync company when user changes (e.g. login)
   useEffect(() => {
-    if (user?.companyId) {
+    if (user?.role === 'manager' && user.companyId) {
       const company = companies.find(c => c.id === user.companyId);
-      if (company) setSelectedCompany(company);
+      if (company && selectedCompany.id !== user.companyId) {
+        setSelectedCompany(company);
+      }
     }
-  }, [user]);
+  }, [user, selectedCompany]);
 
   // State for specific client navigation
   const [selectedClientId, setSelectedClientId] = useState<string | null>(null);
