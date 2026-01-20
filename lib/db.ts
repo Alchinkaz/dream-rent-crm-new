@@ -257,17 +257,22 @@ export const db = {
     },
 
     payments: {
-        async list(companyId: string): Promise<any[]> {
-            const { data, error } = await supabase
+        async list(companyId?: string): Promise<any[]> {
+            let query = supabase
                 .from('payments')
                 .select(`
                     *,
                     client:clients(name, phone, avatar),
                     rental:rentals(id),
-                    responsible:users!responsible_user_id(name, email, avatar_url)
-                `)
-                .eq('company_id', companyId)
-                .order('created_at', { ascending: false });
+                    responsible:users!responsible_user_id(name, email, avatar_url),
+                    company:companies(name, type)
+                `);
+
+            if (companyId) {
+                query = query.eq('company_id', companyId);
+            }
+
+            const { data, error } = await query.order('created_at', { ascending: false });
 
             if (error) {
                 console.error('Error fetching payments:', error);
@@ -286,6 +291,10 @@ export const db = {
                 paymentType: p.method,
                 amount: (p.type === 'income' ? '+ ' : '- ') + formatCurrency(p.amount),
                 type: p.type,
+                company: p.company ? {
+                    name: (p.company as any).name,
+                    type: (p.company as any).type
+                } : null,
                 responsible: p.responsible ? {
                     name: (p.responsible as any).name,
                     email: (p.responsible as any).email,

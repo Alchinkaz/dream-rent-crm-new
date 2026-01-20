@@ -79,50 +79,55 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
       {/* Navigation Links */}
       <nav className="flex-1 py-6 space-y-1 overflow-y-auto overflow-x-hidden">
-        {navItems.map((item) => {
-          const isActive = activePage === item.id;
-          return (
-            <div key={item.id} className="relative px-3">
-              {/* Active Indicator Line */}
-              {isActive && (
-                <div
-                  className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-8 bg-white rounded-r-full shadow-[0_0_8px_rgba(255,255,255,0.4)] transition-all duration-300"
-                />
-              )}
+        {navItems
+          .filter(item => {
+            if (item.id === 'finance') return user?.role === 'admin';
+            return true;
+          })
+          .map((item) => {
+            const isActive = activePage === item.id;
+            return (
+              <div key={item.id} className="relative px-3">
+                {/* Active Indicator Line */}
+                {isActive && (
+                  <div
+                    className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-8 bg-white rounded-r-full shadow-[0_0_8px_rgba(255,255,255,0.4)] transition-all duration-300"
+                  />
+                )}
 
-              <button
-                onClick={() => onNavigate(item.id)}
-                className={`
+                <button
+                  onClick={() => onNavigate(item.id)}
+                  className={`
                   w-full flex items-center p-3 rounded-xl transition-all duration-200 group
                   ${isActive
-                    ? 'bg-neutral-900 text-white'
-                    : 'text-neutral-500 hover:bg-neutral-900/50 hover:text-neutral-300'
-                  }
+                      ? 'bg-neutral-900 text-white'
+                      : 'text-neutral-500 hover:bg-neutral-900/50 hover:text-neutral-300'
+                    }
                   ${isCollapsed ? 'justify-center' : 'justify-start'}
                 `}
-                title={isCollapsed ? item.label : undefined}
-              >
-                <item.icon className={`
+                  title={isCollapsed ? item.label : undefined}
+                >
+                  <item.icon className={`
                   w-5 h-5 flex-shrink-0 transition-colors 
                   ${isCollapsed ? '' : 'mr-3.5'} 
                   ${isActive ? 'text-white' : 'text-neutral-500 group-hover:text-neutral-300'}
                 `} />
 
-                {!isCollapsed && (
-                  <span className={`whitespace-nowrap overflow-hidden animate-in fade-in duration-300 text-[14px] ${isActive ? 'font-medium' : 'font-normal'}`}>
-                    {item.label}
-                  </span>
-                )}
+                  {!isCollapsed && (
+                    <span className={`whitespace-nowrap overflow-hidden animate-in fade-in duration-300 text-[14px] ${isActive ? 'font-medium' : 'font-normal'}`}>
+                      {item.label}
+                    </span>
+                  )}
 
-                {isCollapsed && (
-                  <div className="absolute left-14 ml-2 bg-neutral-900 text-white text-sm px-3 py-1.5 rounded-md opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-50 shadow-xl border border-neutral-800 font-medium">
-                    {item.label}
-                  </div>
-                )}
-              </button>
-            </div>
-          );
-        })}
+                  {isCollapsed && (
+                    <div className="absolute left-14 ml-2 bg-neutral-900 text-white text-sm px-3 py-1.5 rounded-md opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-50 shadow-xl border border-neutral-800 font-medium">
+                      {item.label}
+                    </div>
+                  )}
+                </button>
+              </div>
+            );
+          })}
       </nav>
 
       {/* Company Switcher Area */}

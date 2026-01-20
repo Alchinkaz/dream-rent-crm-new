@@ -147,6 +147,12 @@ const App: React.FC = () => {
 
   // Reset selected client/vehicle when navigating away via Sidebar
   const handlePageChange = (page: PageId) => {
+    // Safety check for finance
+    if (page === 'finance' && user?.role !== 'admin') {
+      setActivePage('dashboard');
+      return;
+    }
+
     setActivePage(page);
     if (page !== 'clients') {
       setSelectedClientId(null);

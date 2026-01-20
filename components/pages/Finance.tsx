@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { PageProps } from '../../types';
-import { Search, Filter, Download, CreditCard, Banknote, Calendar, Hash, ArrowUpRight, ArrowDownLeft, Wallet, Check, ChevronDown, X, Calendar as CalendarIcon, Trash2, Pencil } from 'lucide-react';
+import { Search, Filter, Download, CreditCard, Banknote, Calendar, Hash, ArrowUpRight, ArrowDownLeft, Wallet, Check, ChevronDown, X, Calendar as CalendarIcon, Trash2, Pencil, Car, Bike, Zap } from 'lucide-react';
 import { DateRangePicker } from './Rentals';
 import { parseDateTime } from '../../lib/utils';
 import { db } from '../../lib/db';
@@ -22,6 +22,10 @@ interface FinanceItem {
     email: string;
     avatarUrl: string;
   };
+  company?: {
+    name: string;
+    type: string;
+  } | null;
 }
 
 export const Finance: React.FC<PageProps> = ({ currentCompany }) => {
@@ -41,7 +45,8 @@ export const Finance: React.FC<PageProps> = ({ currentCompany }) => {
   const fetchData = async () => {
     setIsLoading(true);
     try {
-      const data = await db.payments.list(currentCompany.id);
+      // Fetch ALL payments since this is now a global admin view
+      const data = await db.payments.list();
       setFinanceData(data);
     } catch (err) {
       console.error('Failed to fetch finance data:', err);
@@ -225,6 +230,7 @@ export const Finance: React.FC<PageProps> = ({ currentCompany }) => {
                     />
                   </th>
                   <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider whitespace-nowrap">Дата</th>
+                  <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider whitespace-nowrap">Компания</th>
                   <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider whitespace-nowrap">Аренда</th>
                   <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider whitespace-nowrap">Клиент</th>
                   <th className="px-6 py-4 text-xs font-semibold text-slate-500 uppercase tracking-wider whitespace-nowrap">Тип оплаты</th>
@@ -251,6 +257,16 @@ export const Finance: React.FC<PageProps> = ({ currentCompany }) => {
                       <div className="flex items-center gap-2 text-slate-600 font-medium text-sm">
                         <Calendar className="w-4 h-4 text-slate-400" />
                         {item.date}
+                      </div>
+                    </td>
+
+                    {/* Company */}
+                    <td className="px-6 py-4 align-middle whitespace-nowrap">
+                      <div className="flex items-center gap-2">
+                        <div className="p-1.5 bg-slate-100 rounded-md text-slate-500">
+                          {item.company?.type === 'cars' ? <Car className="w-3.5 h-3.5" /> : (item.company?.type === 'moto' ? <Zap className="w-3.5 h-3.5" /> : <Bike className="w-3.5 h-3.5" />)}
+                        </div>
+                        <span className="text-[13px] font-medium text-slate-700">{item.company?.name || '—'}</span>
                       </div>
                     </td>
 
