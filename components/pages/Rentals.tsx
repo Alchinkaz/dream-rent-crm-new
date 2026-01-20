@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { PageProps, ClientItem, VehicleItem, RentalItem, User as UserType, RentalStatus } from '../../types';
-import { Settings, Check, Clock, CheckCircle2, GripVertical, Search, Calendar as CalendarIcon, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, AlertCircle, Hourglass, CreditCard, LayoutGrid, LayoutList, Copy, ArrowLeft, Save, User, Car, Bike, Wallet, FileText, Trash2, X, ChevronRight as ChevronRightIcon, ChevronDown, ArrowRight, CalendarCheck, Plus, Tag, Archive, Ban, ShieldAlert, Banknote, Camera } from 'lucide-react';
+import { Settings, Check, Clock, CheckCircle2, GripVertical, Search, Calendar as CalendarIcon, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, AlertCircle, Hourglass, CreditCard, LayoutGrid, LayoutList, Copy, ArrowLeft, Save, User, Car, Bike, Wallet, FileText, Trash2, X, ChevronRight as ChevronRightIcon, ChevronDown, ArrowRight, CalendarCheck, Plus, Tag, Archive, Ban, ShieldAlert, Banknote, Camera, Zap } from 'lucide-react';
 import { initialCarClients, initialScootClients, initialCarVehicles, initialScootVehicles } from '../../data';
 import { ClientForm } from './Clients';
 import { VehicleForm } from './Warehouse';
@@ -511,7 +511,7 @@ const RentalForm: React.FC<PageProps & {
 
   useEffect(() => {
     const fetchData = async () => {
-      const companyId = isCars ? 'cars' : 'scoots';
+      const companyId = currentCompany.id;
       const [clients, vehicles] = await Promise.all([
         db.clients.list(companyId),
         db.vehicles.list(companyId)
@@ -740,7 +740,7 @@ const RentalForm: React.FC<PageProps & {
 
   const handleCreateClientSave = async (newClient: ClientItem) => {
     try {
-      await db.clients.save(newClient, isCars ? 'cars' : 'scoots');
+      await db.clients.save(newClient, currentCompany.id);
       setAllClients(prev => [...prev, newClient]);
       handleSelectClient(newClient);
       setIsNewClientModalOpen(false);
@@ -752,7 +752,7 @@ const RentalForm: React.FC<PageProps & {
 
   const handleCreateVehicleSave = async (newVehicle: VehicleItem) => {
     try {
-      await db.vehicles.save(newVehicle, isCars ? 'cars' : 'scoots');
+      await db.vehicles.save(newVehicle, currentCompany.id);
       setAllVehicles(prev => [...prev, newVehicle]);
       handleSelectVehicle(newVehicle);
       setIsNewVehicleModalOpen(false);
@@ -1099,7 +1099,11 @@ const RentalForm: React.FC<PageProps & {
                   <div className="flex-shrink-0 flex flex-col items-center gap-2 pt-1">
                     <div className="w-16 h-16 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-400 overflow-hidden">
                       {formData.vehicle?.image && <img src={formData.vehicle.image} alt="vehicle" className="w-full h-full object-cover" />}
-                      {!formData.vehicle?.image && <div className="w-full h-full flex items-center justify-center text-slate-400"><Car className="w-8 h-8" /></div>}
+                      {!formData.vehicle?.image && (
+                        <div className="w-full h-full flex items-center justify-center text-slate-400">
+                          {currentCompany.type === 'cars' ? <Car className="w-8 h-8" /> : (currentCompany.type === 'moto' ? <Zap className="w-8 h-8" /> : <Bike className="w-8 h-8" />)}
+                        </div>
+                      )}
                     </div>
                   </div>
                   <div className="flex-1 w-full space-y-3" ref={vehicleSearchWrapperRef}>

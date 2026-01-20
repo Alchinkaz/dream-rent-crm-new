@@ -13,6 +13,7 @@ import { Login } from './components/pages/Login';
 const companies: Company[] = [
   { id: 'cars', name: 'KazDream Cars', email: 'info@dreamrent.kz', type: 'cars' },
   { id: 'scoots', name: 'KazDream Scoots', email: 'info@dreamrent.kz', type: 'scoots' },
+  { id: 'evmoto', name: 'KazDream EV moto', email: 'info@evmoto.kz', type: 'moto' },
 ];
 
 const App: React.FC = () => {

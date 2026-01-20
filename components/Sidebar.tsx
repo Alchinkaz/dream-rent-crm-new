@@ -11,7 +11,8 @@ import {
   Car,
   Bike,
   Check,
-  LayoutDashboard
+  LayoutDashboard,
+  Zap
 } from 'lucide-react';
 import { NavItem, SidebarProps } from '../types';
 
@@ -38,7 +39,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
   const canSwitchCompanies = user?.role === 'admin' || companies.length > 1;
 
-  const CompanyIcon = selectedCompany.type === 'cars' ? Car : Bike;
+  const getCompanyIcon = (type: string) => {
+    switch (type) {
+      case 'cars': return Car;
+      case 'moto': return Zap;
+      default: return Bike;
+    }
+  };
+
+  const CompanyIcon = getCompanyIcon(selectedCompany.type);
 
   return (
     <aside
@@ -126,7 +135,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             ${isCollapsed ? 'w-60 left-2' : ''}
           `}>
             {companies.map((company) => {
-              const Icon = company.type === 'cars' ? Car : Bike;
+              const Icon = getCompanyIcon(company.type);
               return (
                 <button
                   key={company.id}

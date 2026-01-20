@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { PageProps, VehicleItem, RentalItem, Tariff } from '../../types';
-import { Settings, Check, Search, Filter, GripVertical, AlertTriangle, Wrench, CheckCircle2, Circle, Plus, Activity, Car, Bike, Cone, ArrowLeft, Calendar, FileText, Hash, Gauge, Palette, History, Shield, AlertCircle, Copy, Pencil, Trash2, Info, Fuel, DollarSign, Save, X, Camera, Upload, Calendar as CalendarIcon, CreditCard, LayoutList, LayoutGrid, Hourglass, ChevronDown } from 'lucide-react';
+import { Settings, Check, Search, Filter, GripVertical, AlertTriangle, Wrench, CheckCircle2, Circle, Plus, Activity, Car, Bike, Cone, ArrowLeft, Calendar, FileText, Hash, Gauge, Palette, History, Shield, AlertCircle, Copy, Pencil, Trash2, Info, Fuel, DollarSign, Save, X, Camera, Upload, Calendar as CalendarIcon, CreditCard, LayoutList, LayoutGrid, Hourglass, ChevronDown, Zap } from 'lucide-react';
 import { getStatusBadge as getRentalStatusBadge, RentalsTable, RentalsGrid, DateRangePicker } from './Rentals';
 import { db, uploadImage } from '../../lib/db';
 import { formatDateTime, parseDateTime } from '../../lib/utils';
@@ -278,11 +278,12 @@ const TariffModal: React.FC<TariffModalProps> = ({ isOpen, onClose, onSave, init
 export interface VehicleFormProps {
     initialData: VehicleItem | null;
     isCars: boolean;
+    companyType: 'cars' | 'scoots' | 'moto';
     onSave: (data: VehicleItem) => void;
     onCancel: () => void;
 }
 
-export const VehicleForm: React.FC<VehicleFormProps> = ({ initialData, isCars, onSave, onCancel }) => {
+export const VehicleForm: React.FC<VehicleFormProps> = ({ initialData, isCars, companyType, onSave, onCancel }) => {
     const isEdit = !!initialData;
     const [formData, setFormData] = useState<Partial<VehicleItem>>(() => {
         if (initialData) return { ...initialData };
@@ -300,7 +301,9 @@ export const VehicleForm: React.FC<VehicleFormProps> = ({ initialData, isCars, o
             tariffs: [],
             image: isCars
                 ? 'https://images.unsplash.com/photo-1533473359331-0135ef1b58bf?auto=format&fit=crop&q=80&w=300&h=300'
-                : 'https://images.unsplash.com/photo-1558981403-c5f9899a28bc?auto=format&fit=crop&q=80&w=300&h=300'
+                : (companyType === 'moto'
+                    ? 'https://images.unsplash.com/photo-1558981403-c5f9899a28bc?auto=format&fit=crop&q=80&w=300&h=300'
+                    : 'https://images.unsplash.com/photo-1558981403-c5f9899a28bc?auto=format&fit=crop&q=80&w=300&h=300')
         };
     });
     const [imageFile, setImageFile] = useState<File | null>(null);
@@ -351,7 +354,7 @@ export const VehicleForm: React.FC<VehicleFormProps> = ({ initialData, isCars, o
                 <div className="max-w-4xl mx-auto flex items-center justify-between w-full">
                     <div className="flex items-center gap-4">
                         <button onClick={onCancel} className="p-2 -ml-2 text-slate-500 hover:bg-slate-100 rounded-full transition-colors"><ArrowLeft className="w-5 h-5" /></button>
-                        <h1 className="text-xl font-bold text-slate-900">{isEdit ? 'Редактирование транспорта' : (isCars ? 'Новый автомобиль' : 'Новый мопед')}</h1>
+                        <h1 className="text-xl font-bold text-slate-900">{isEdit ? 'Редактирование транспорта' : (isCars ? 'Новый автомобиль' : (companyType === 'moto' ? 'Новый электромотоцикл' : 'Новый мопед'))}</h1>
                     </div>
                     <div className="flex items-center gap-3">
                         <button onClick={onCancel} className="px-4 py-2 text-slate-600 font-medium hover:bg-slate-100 rounded-lg transition-colors">Отмена</button>
@@ -1042,6 +1045,7 @@ export const Warehouse: React.FC<PageProps> = ({ currentCompany, initialSelected
             <VehicleForm
                 initialData={editingVehicle}
                 isCars={currentCompany.type === 'cars'}
+                companyType={currentCompany.type}
                 onSave={handleSave}
                 onCancel={() => {
                     if (editingVehicle && selectedVehicle) {

@@ -21,7 +21,7 @@ export interface Company {
   id: string;
   name: string;
   email: string;
-  type: 'cars' | 'scoots';
+  type: 'cars' | 'scoots' | 'moto';
 }
 
 export interface SidebarProps {
