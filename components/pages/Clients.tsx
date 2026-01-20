@@ -430,7 +430,11 @@ export const ClientForm: React.FC<ClientFormProps> = ({ initialData, onSave, onC
         if (file) {
             setIsUploading(true);
             const url = await uploadFile(file);
-            if (url) setFormData(prev => ({ ...prev, avatar: url }));
+            if (url) {
+                setFormData(prev => ({ ...prev, avatar: url }));
+            } else {
+                alert('Ошибка при загрузке фото. Проверьте настройки хранилища Supabase.');
+            }
             setIsUploading(false);
         }
     };
@@ -469,6 +473,8 @@ export const ClientForm: React.FC<ClientFormProps> = ({ initialData, onSave, onC
                         handleUpdateDocument(docIndex, 'images', [...currentImages, url]);
                     }
                 }
+            } else {
+                alert('Ошибка при загрузке документа. Проверьте настройки хранилища Supabase.');
             }
             setIsUploading(false);
         }
@@ -822,6 +828,8 @@ const ClientDetails: React.FC<{
                 if (currentImages.length < 4) {
                     setNewDocument({ ...newDocument, images: [...currentImages, url] });
                 }
+            } else {
+                alert('Ошибка при загрузке файла. Проверьте настройки хранилища Supabase.');
             }
             setIsUploading(false);
         }
@@ -843,7 +851,11 @@ const ClientDetails: React.FC<{
         if (file) {
             setIsUploading(true);
             const url = await uploadFile(file);
-            if (url) setNewContact({ ...newContact, avatar: url });
+            if (url) {
+                setNewContact({ ...newContact, avatar: url });
+            } else {
+                alert('Ошибка при загрузке фото контакта.');
+            }
             setIsUploading(false);
         }
     };

@@ -336,22 +336,22 @@ export const db = {
     }
 };
 
-export async function uploadFile(file: File) {
+export async function uploadFile(file: File, bucket: string = 'vehicles') {
     const fileExt = file.name.split('.').pop();
     const fileName = `${Math.random().toString(36).substring(2, 11)}.${fileExt}`;
     const filePath = `${fileName}`;
 
     const { error: uploadError } = await supabase.storage
-        .from('images')
+        .from(bucket)
         .upload(filePath, file);
 
     if (uploadError) {
-        console.error('Error uploading file:', uploadError);
+        console.error(`Error uploading file to bucket ${bucket}:`, uploadError);
         return null;
     }
 
     const { data } = supabase.storage
-        .from('images')
+        .from(bucket)
         .getPublicUrl(filePath);
 
     return data.publicUrl;

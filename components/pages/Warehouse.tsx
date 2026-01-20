@@ -335,8 +335,12 @@ export const VehicleForm: React.FC<VehicleFormProps> = ({ initialData, isCars, c
         let finalImage = formData.image;
 
         if (imageFile) {
-            const url = await uploadFile(imageFile);
-            if (url) finalImage = url;
+            const url = await uploadFile(imageFile, 'vehicles');
+            if (url) {
+                finalImage = url;
+            } else {
+                alert('Ошибка при загрузке фото транспорта. Проверьте настройки Supabase Storage.');
+            }
         }
 
         const finalData: VehicleItem = {
