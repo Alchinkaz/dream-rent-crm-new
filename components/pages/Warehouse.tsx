@@ -2,8 +2,9 @@ import React, { useState, useRef, useEffect } from 'react';
 import { PageProps, VehicleItem, RentalItem, Tariff } from '../../types';
 import { Settings, Check, Search, Filter, GripVertical, AlertTriangle, Wrench, CheckCircle2, Circle, Plus, Activity, Car, Bike, Cone, ArrowLeft, Calendar, FileText, Hash, Gauge, Palette, History, Shield, AlertCircle, Copy, Pencil, Trash2, Info, Fuel, DollarSign, Save, X, Camera, Upload, Calendar as CalendarIcon, CreditCard, LayoutList, LayoutGrid, Hourglass, ChevronDown, Zap } from 'lucide-react';
 import { getStatusBadge as getRentalStatusBadge, RentalsTable, RentalsGrid, DateRangePicker } from './Rentals';
-import { db, uploadImage } from '../../lib/db';
+import { db, uploadFile } from '../../lib/db';
 import { formatDateTime, parseDateTime } from '../../lib/utils';
+
 
 type TabId = 'vehicles' | 'maintenance';
 
@@ -334,7 +335,7 @@ export const VehicleForm: React.FC<VehicleFormProps> = ({ initialData, isCars, c
         let finalImage = formData.image;
 
         if (imageFile) {
-            const url = await uploadImage(imageFile);
+            const url = await uploadFile(imageFile);
             if (url) finalImage = url;
         }
 

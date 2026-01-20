@@ -336,7 +336,7 @@ export const db = {
     }
 };
 
-export async function uploadImage(file: File) {
+export async function uploadFile(file: File) {
     const fileExt = file.name.split('.').pop();
     const fileName = `${Math.random().toString(36).substring(2, 11)}.${fileExt}`;
     const filePath = `${fileName}`;
@@ -346,7 +346,7 @@ export async function uploadImage(file: File) {
         .upload(filePath, file);
 
     if (uploadError) {
-        console.error('Error uploading image:', uploadError);
+        console.error('Error uploading file:', uploadError);
         return null;
     }
 

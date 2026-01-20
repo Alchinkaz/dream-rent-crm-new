@@ -1,8 +1,8 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { PageProps, ClientItem, ClientDocument, ClientContact, RentalItem } from '../../types';
-import { Settings, Check, Search, Filter, GripVertical, GripHorizontal, Hash, ArrowLeft, Pencil, Trash2, Phone, FileText, ShieldAlert, MessageCircle, Copy, Info, LayoutList, LayoutGrid, Calendar as CalendarIcon, CreditCard, Hourglass, AlertCircle, Plus, Save, X, User as UserIcon, Camera, Upload, Eye, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Settings, Check, Search, Filter, GripVertical, GripHorizontal, Hash, ArrowLeft, Pencil, Trash2, Phone, FileText, ShieldAlert, MessageCircle, Copy, Info, LayoutList, LayoutGrid, Calendar as CalendarIcon, CreditCard, Hourglass, AlertCircle, Plus, Save, X, User as UserIcon, Camera, Upload, Eye, ChevronLeft, ChevronRight, Download, ExternalLink } from 'lucide-react';
 import { RentalsGrid, RentalsTable, DateRangePicker, getStatusBadge } from './Rentals';
-import { db } from '../../lib/db';
+import { db, uploadFile } from '../../lib/db';
 import { formatDateTime, parseDateTime } from '../../lib/utils';
 
 interface ColumnConfig {
@@ -70,6 +70,12 @@ const formatDateForInput = (dateStr?: string) => {
     if (!dateStr) return '';
     // Assuming dateStr is stored as YYYY-MM-DD or similar standard format for inputs
     return dateStr;
+};
+
+const isImage = (url?: string) => {
+    if (!url) return false;
+    const ext = url.split('.').pop()?.toLowerCase();
+    return ['jpg', 'jpeg', 'png', 'gif', 'webp', 'avif'].includes(ext || '');
 };
 
 // --- MAIN CLIENTS COMPONENT ---
@@ -417,11 +423,15 @@ export const ClientForm: React.FC<ClientFormProps> = ({ initialData, onSave, onC
         setFormData(prev => ({ ...prev, [field]: value }));
     };
 
-    const handleAvatarUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const [isUploading, setIsUploading] = useState(false);
+
+    const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (file) {
-            const fakeUrl = URL.createObjectURL(file);
-            setFormData(prev => ({ ...prev, avatar: fakeUrl }));
+            setIsUploading(true);
+            const url = await uploadFile(file);
+            if (url) setFormData(prev => ({ ...prev, avatar: url }));
+            setIsUploading(false);
         }
     };
 
@@ -445,18 +455,22 @@ export const ClientForm: React.FC<ClientFormProps> = ({ initialData, onSave, onC
         if (editingDocIndex === index) setEditingDocIndex(null);
     };
 
-    // Upload new image for document (Supports multiple images)
-    const handleDocImageUpload = (e: React.ChangeEvent<HTMLInputElement>, docIndex: number) => {
+    // Upload new file for document (Supports multiple files)
+    const handleDocFileUpload = async (e: React.ChangeEvent<HTMLInputElement>, docIndex: number) => {
         const file = e.target.files?.[0];
         if (file) {
-            const fakeUrl = URL.createObjectURL(file);
-            const currentDoc = formData.documents?.[docIndex];
-            if (currentDoc) {
-                const currentImages = currentDoc.images || [];
-                if (currentImages.length < 4) {
-                    handleUpdateDocument(docIndex, 'images', [...currentImages, fakeUrl]);
+            setIsUploading(true);
+            const url = await uploadFile(file);
+            if (url) {
+                const currentDoc = formData.documents?.[docIndex];
+                if (currentDoc) {
+                    const currentImages = currentDoc.images || [];
+                    if (currentImages.length < 4) {
+                        handleUpdateDocument(docIndex, 'images', [...currentImages, url]);
+                    }
                 }
             }
+            setIsUploading(false);
         }
     };
 
@@ -488,11 +502,13 @@ export const ClientForm: React.FC<ClientFormProps> = ({ initialData, onSave, onC
         if (editingContactIndex === index) setEditingContactIndex(null);
     };
 
-    const handleContactImageUpload = (e: React.ChangeEvent<HTMLInputElement>, index: number) => {
+    const handleContactImageUpload = async (e: React.ChangeEvent<HTMLInputElement>, index: number) => {
         const file = e.target.files?.[0];
         if (file) {
-            const fakeUrl = URL.createObjectURL(file);
-            handleUpdateContact(index, 'avatar', fakeUrl);
+            setIsUploading(true);
+            const url = await uploadFile(file);
+            if (url) handleUpdateContact(index, 'avatar', url);
+            setIsUploading(false);
         }
     };
 
@@ -562,20 +578,36 @@ export const ClientForm: React.FC<ClientFormProps> = ({ initialData, onSave, onC
                                                     <div className="flex flex-col gap-2">
                                                         <span className="text-sm font-medium text-slate-700">Фото документов (до 4 шт.)</span>
                                                         <div className="flex items-center gap-3 flex-wrap">
-                                                            {/* Existing Images */}
+                                                            {/* Existing Documents */}
                                                             {docImages.map((img, imgIdx) => (
-                                                                <div key={imgIdx} className="relative group w-20 h-20 rounded-xl overflow-hidden border border-slate-200 bg-white">
-                                                                    <img src={img} className="w-full h-full object-cover" alt={`doc-${imgIdx}`} />
-                                                                    <button onClick={() => handleRemoveDocImage(index, imgIdx)} type="button" className="absolute top-1 right-1 p-1 bg-white/90 text-slate-600 rounded-md opacity-0 group-hover:opacity-100 transition-opacity hover:text-red-600"><X className="w-3 h-3" /></button>
+                                                                <div key={imgIdx} className="relative group w-20 h-20 rounded-xl overflow-hidden border border-slate-200 bg-white flex items-center justify-center">
+                                                                    {isImage(img) ? (
+                                                                        <img src={img} className="w-full h-full object-cover" alt={`doc-${imgIdx}`} />
+                                                                    ) : (
+                                                                        <div className="flex flex-col items-center gap-1 text-slate-400">
+                                                                            <FileText className="w-8 h-8" />
+                                                                            <span className="text-[10px] uppercase font-bold text-slate-500">{img.split('.').pop()}</span>
+                                                                        </div>
+                                                                    )}
+                                                                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                                                                        <a href={img} target="_blank" rel="noopener noreferrer" className="p-1.5 bg-white/90 text-slate-600 rounded-md hover:text-neutral-900" title="Открыть"><ExternalLink className="w-4 h-4" /></a>
+                                                                        <button onClick={() => handleRemoveDocImage(index, imgIdx)} type="button" className="p-1.5 bg-white/90 text-slate-600 rounded-md hover:text-red-600" title="Удалить"><X className="w-4 h-4" /></button>
+                                                                    </div>
                                                                 </div>
                                                             ))}
 
                                                             {/* Upload Button (Only if less than 4) */}
                                                             {docImages.length < 4 && (
-                                                                <label className="w-20 h-20 bg-white border-2 border-dashed border-slate-300 rounded-xl flex flex-col gap-1 items-center justify-center cursor-pointer hover:border-neutral-900 hover:bg-slate-50 transition-colors">
-                                                                    <Upload className="w-4 h-4 text-slate-400" />
-                                                                    <span className="text-[9px] font-medium text-slate-500">Загрузить</span>
-                                                                    <input type="file" className="hidden" accept="image/*" onChange={(e) => handleDocImageUpload(e, index)} />
+                                                                <label className="w-20 h-20 bg-white border-2 border-dashed border-slate-300 rounded-xl flex flex-col gap-1 items-center justify-center cursor-pointer hover:border-neutral-900 hover:bg-slate-50 transition-colors relative">
+                                                                    {isUploading ? (
+                                                                        <span className="animate-spin h-5 w-5 border-2 border-neutral-900 border-t-transparent rounded-full"></span>
+                                                                    ) : (
+                                                                        <>
+                                                                            <Upload className="w-4 h-4 text-slate-400" />
+                                                                            <span className="text-[9px] font-medium text-slate-500 uppercase">Файл</span>
+                                                                        </>
+                                                                    )}
+                                                                    <input type="file" className="hidden" accept="image/*,application/pdf" onChange={(e) => handleDocFileUpload(e, index)} disabled={isUploading} />
                                                                 </label>
                                                             )}
                                                         </div>
@@ -628,7 +660,14 @@ export const ClientForm: React.FC<ClientFormProps> = ({ initialData, onSave, onC
                                             <div className="w-12 h-12 bg-slate-200 rounded-lg flex-shrink-0 flex items-center justify-center text-slate-400 overflow-hidden border border-slate-200 relative">
                                                 {docImages.length > 0 ? (
                                                     <>
-                                                        <img src={docImages[0]} className="w-full h-full object-cover" alt="doc" />
+                                                        {isImage(docImages[0]) ? (
+                                                            <img src={docImages[0]} className="w-full h-full object-cover" alt="doc" />
+                                                        ) : (
+                                                            <div className="flex flex-col items-center justify-center w-full h-full bg-slate-50">
+                                                                <FileText className="w-6 h-6 text-slate-400" />
+                                                                <span className="text-[8px] font-bold text-slate-500 uppercase">{docImages[0].split('.').pop()}</span>
+                                                            </div>
+                                                        )}
                                                         {docImages.length > 1 && (
                                                             <div className="absolute inset-0 bg-black/50 flex items-center justify-center text-white text-xs font-bold">+{docImages.length - 1}</div>
                                                         )}
@@ -739,6 +778,7 @@ const ClientDetails: React.FC<{
 
     const [isAddContactModalOpen, setIsAddContactModalOpen] = useState(false);
     const [newContact, setNewContact] = useState<ClientContact>({ name: '', phone: '', avatar: 'https://ui-avatars.com/api/?name=New+Contact&background=f1f5f9&color=64748b' });
+    const [isUploading, setIsUploading] = useState(false);
 
     const datePickerRef = useRef<HTMLDivElement>(null);
     const paymentFilterRef = useRef<HTMLDivElement>(null);
@@ -772,14 +812,18 @@ const ClientDetails: React.FC<{
         setNewDocument({ type: 'id_card', number: '', iin: '', images: [] });
     };
 
-    const handleNewDocImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const handleNewDocFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (file) {
-            const fakeUrl = URL.createObjectURL(file);
-            const currentImages = newDocument.images || [];
-            if (currentImages.length < 4) {
-                setNewDocument({ ...newDocument, images: [...currentImages, fakeUrl] });
+            setIsUploading(true);
+            const url = await uploadFile(file);
+            if (url) {
+                const currentImages = newDocument.images || [];
+                if (currentImages.length < 4) {
+                    setNewDocument({ ...newDocument, images: [...currentImages, url] });
+                }
             }
+            setIsUploading(false);
         }
     };
 
@@ -794,11 +838,13 @@ const ClientDetails: React.FC<{
         setNewContact({ name: '', phone: '', avatar: 'https://ui-avatars.com/api/?name=New+Contact&background=f1f5f9&color=64748b' });
     };
 
-    const handleNewContactImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const handleNewContactImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (file) {
-            const fakeUrl = URL.createObjectURL(file);
-            setNewContact({ ...newContact, avatar: fakeUrl });
+            setIsUploading(true);
+            const url = await uploadFile(file);
+            if (url) setNewContact({ ...newContact, avatar: url });
+            setIsUploading(false);
         }
     };
 
@@ -938,7 +984,14 @@ const ClientDetails: React.FC<{
                                         <div className="w-12 h-12 bg-slate-200 rounded-lg flex-shrink-0 flex items-center justify-center text-slate-400 overflow-hidden border border-slate-200 relative">
                                             {doc.images && doc.images.length > 0 ? (
                                                 <>
-                                                    <img src={doc.images[0]} className="w-full h-full object-cover" alt="doc" />
+                                                    {isImage(doc.images[0]) ? (
+                                                        <img src={doc.images[0]} className="w-full h-full object-cover" alt="doc" />
+                                                    ) : (
+                                                        <div className="flex flex-col items-center justify-center w-full h-full bg-slate-50">
+                                                            <FileText className="w-6 h-6 text-slate-400" />
+                                                            <span className="text-[8px] font-bold text-slate-500 uppercase">{doc.images[0].split('.').pop()}</span>
+                                                        </div>
+                                                    )}
                                                     {doc.images.length > 1 && (
                                                         <div className="absolute inset-0 bg-black/50 flex items-center justify-center text-white text-xs font-bold">+{doc.images.length - 1}</div>
                                                     )}
@@ -1066,15 +1119,32 @@ const ClientDetails: React.FC<{
                                 <span className="text-sm font-medium text-slate-700">Фото (до 4 шт.)</span>
                                 <div className="flex items-center gap-3 flex-wrap">
                                     {newDocument.images.map((img, i) => (
-                                        <div key={i} className="relative w-16 h-16 rounded-lg overflow-hidden border border-slate-200">
-                                            <img src={img} className="w-full h-full object-cover" alt="preview" />
-                                            <button onClick={() => setNewDocument({ ...newDocument, images: newDocument.images.filter((_, idx) => idx !== i) })} className="absolute top-0.5 right-0.5 p-0.5 bg-white rounded text-red-500 hover:bg-red-50"><X className="w-3 h-3" /></button>
+                                        <div key={i} className="relative w-16 h-16 rounded-lg overflow-hidden border border-slate-200 bg-white flex items-center justify-center group">
+                                            {isImage(img) ? (
+                                                <img src={img} className="w-full h-full object-cover" alt="preview" />
+                                            ) : (
+                                                <div className="flex flex-col items-center text-slate-400">
+                                                    <FileText className="w-6 h-6" />
+                                                    <span className="text-[8px] font-bold uppercase">{img.split('.').pop()}</span>
+                                                </div>
+                                            )}
+                                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-1">
+                                                <a href={img} target="_blank" rel="noopener noreferrer" className="p-1 bg-white/90 text-slate-600 rounded hover:text-neutral-900" title="Открыть"><ExternalLink className="w-3 h-3" /></a>
+                                                <button onClick={() => setNewDocument({ ...newDocument, images: newDocument.images.filter((_, idx) => idx !== i) })} className="p-1 bg-white/90 text-red-500 rounded hover:bg-red-50" title="Удалить"><X className="w-3 h-3" /></button>
+                                            </div>
                                         </div>
                                     ))}
                                     {newDocument.images.length < 4 && (
-                                        <label className="w-16 h-16 bg-slate-50 border-2 border-dashed border-slate-300 rounded-lg flex items-center justify-center cursor-pointer hover:border-neutral-900 hover:bg-white transition-colors">
-                                            <Upload className="w-4 h-4 text-slate-400" />
-                                            <input type="file" className="hidden" accept="image/*" onChange={handleNewDocImageUpload} />
+                                        <label className="w-16 h-16 bg-slate-50 border-2 border-dashed border-slate-300 rounded-lg flex flex-col items-center justify-center cursor-pointer hover:border-neutral-900 hover:bg-white transition-colors relative">
+                                            {isUploading ? (
+                                                <span className="animate-spin h-4 w-4 border-2 border-neutral-900 border-t-transparent rounded-full"></span>
+                                            ) : (
+                                                <>
+                                                    <Upload className="w-4 h-4 text-slate-400" />
+                                                    <span className="text-[8px] font-bold text-slate-500 uppercase">Файл</span>
+                                                </>
+                                            )}
+                                            <input type="file" className="hidden" accept="image/*,application/pdf" onChange={handleNewDocFileUpload} disabled={isUploading} />
                                         </label>
                                     )}
                                 </div>
@@ -1175,18 +1245,29 @@ const ClientDetails: React.FC<{
                                 <span className="text-xs text-slate-400 font-medium uppercase tracking-wide block mb-3">Фотографии документа</span>
                                 {currentImages.length > 0 ? (
                                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                        {currentImages.map((img, idx) => (
-                                            <div
-                                                key={idx}
-                                                className="rounded-xl overflow-hidden border border-slate-200 bg-slate-50 aspect-video group relative cursor-pointer hover:border-slate-300 hover:shadow-md transition-all"
-                                                onClick={() => setGalleryImageIndex(idx)}
-                                            >
-                                                <img src={img} className="w-full h-full object-contain" alt={`View doc ${idx}`} />
-                                                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors flex items-center justify-center">
-                                                    <Eye className="w-8 h-8 text-white opacity-0 group-hover:opacity-100 drop-shadow-md transition-opacity" />
+                                        {currentImages.map((img, idx) => {
+                                            const isImg = isImage(img);
+                                            return (
+                                                <div
+                                                    key={idx}
+                                                    className="rounded-xl overflow-hidden border border-slate-200 bg-slate-50 aspect-video group relative cursor-pointer hover:border-slate-300 hover:shadow-md transition-all flex items-center justify-center"
+                                                    onClick={() => isImg ? setGalleryImageIndex(idx) : window.open(img, '_blank')}
+                                                >
+                                                    {isImg ? (
+                                                        <img src={img} className="w-full h-full object-contain" alt={`View doc ${idx}`} />
+                                                    ) : (
+                                                        <div className="flex flex-col items-center gap-2 text-slate-400">
+                                                            <FileText className="w-12 h-12" />
+                                                            <span className="text-sm font-bold uppercase">{img.split('.').pop()}</span>
+                                                        </div>
+                                                    )}
+                                                    <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors flex items-center justify-center gap-3">
+                                                        <Eye className="w-8 h-8 text-white opacity-0 group-hover:opacity-100 drop-shadow-md transition-opacity" />
+                                                        {!isImg && <ExternalLink className="w-8 h-8 text-white opacity-0 group-hover:opacity-100 drop-shadow-md transition-opacity" />}
+                                                    </div>
                                                 </div>
-                                            </div>
-                                        ))}
+                                            );
+                                        })}
                                     </div>
                                 ) : (
                                     <div className="h-32 rounded-xl border border-dashed border-slate-300 flex flex-col items-center justify-center text-slate-400 bg-slate-50">
@@ -1206,13 +1287,25 @@ const ClientDetails: React.FC<{
             {/* Full Screen Gallery Overlay */}
             {galleryImageIndex !== null && currentImages.length > 0 && (
                 <div className="fixed inset-0 z-[100] bg-black flex flex-col items-center justify-center animate-in fade-in duration-300 outline-none" tabIndex={0} autoFocus>
-                    {/* Close Button */}
-                    <button
-                        onClick={() => setGalleryImageIndex(null)}
-                        className="absolute top-4 right-4 p-3 bg-black/50 hover:bg-white/20 text-white rounded-full transition-colors z-[101] backdrop-blur-md"
-                    >
-                        <X className="w-6 h-6" />
-                    </button>
+                    {/* Actions */}
+                    <div className="absolute top-4 right-4 flex items-center gap-2 z-[101]">
+                        <a
+                            href={currentImages[galleryImageIndex]}
+                            download
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="p-3 bg-black/50 hover:bg-white/20 text-white rounded-full transition-colors backdrop-blur-md"
+                            title="Скачать / Открыть"
+                        >
+                            <Download className="w-6 h-6" />
+                        </a>
+                        <button
+                            onClick={() => setGalleryImageIndex(null)}
+                            className="p-3 bg-black/50 hover:bg-white/20 text-white rounded-full transition-colors backdrop-blur-md"
+                        >
+                            <X className="w-6 h-6" />
+                        </button>
+                    </div>
 
                     {/* Main Image */}
                     <div className="w-full h-full p-4 flex items-center justify-center">
@@ -1424,9 +1517,21 @@ const ClientsTable: React.FC<ClientsTableProps> = ({ data, isCars, onRowClick, s
                                                 return (
                                                     <td key={`${item.id}-documents`} className="px-4 py-3 align-middle">
                                                         <div className="flex items-center gap-3">
-                                                            <div className="w-10 h-10 rounded-lg bg-slate-100 border border-slate-200 flex items-center justify-center flex-shrink-0 text-slate-400 relative overflow-hidden">
+                                                            <div className="w-10 h-10 rounded-lg bg-slate-100 border border-slate-200 flex items-center justify-center flex-shrink-0 text-slate-400 relative overflow-hidden group/doc">
                                                                 {doc.images && doc.images.length > 0 ? (
-                                                                    <img src={doc.images[0]} className="w-full h-full object-cover" alt="doc" />
+                                                                    <>
+                                                                        {isImage(doc.images[0]) ? (
+                                                                            <img src={doc.images[0]} className="w-full h-full object-cover" alt="doc" />
+                                                                        ) : (
+                                                                            <div className="flex flex-col items-center justify-center w-full h-full bg-slate-50">
+                                                                                <FileText className="w-5 h-5 text-slate-400" />
+                                                                                <span className="text-[7px] font-bold text-slate-500 uppercase">{doc.images[0].split('.').pop()}</span>
+                                                                            </div>
+                                                                        )}
+                                                                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/doc:opacity-100 transition-opacity flex items-center justify-center">
+                                                                            <Download className="w-4 h-4 text-white" />
+                                                                        </div>
+                                                                    </>
                                                                 ) : <FileText className="w-5 h-5" />}
                                                             </div>
                                                             <div className="flex flex-col min-w-0">
